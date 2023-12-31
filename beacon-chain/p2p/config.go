@@ -20,6 +20,7 @@ type Config struct {
 	HostAddress         string
 	HostDNS             string
 	PrivateKey          string
+	PrivateKeyHex       string
 	DataDir             string
 	MetaDataDir         string
 	TCPPort             uint
