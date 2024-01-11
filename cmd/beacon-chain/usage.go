@@ -75,6 +75,7 @@ var appHelpFlagGroups = []flagGroup{
 			cmd.RestoreTargetDirFlag,
 			cmd.ValidatorMonitorIndicesFlag,
 			cmd.ApiTimeoutFlag,
+			cmd.Attacker,
 		},
 	},
 	{

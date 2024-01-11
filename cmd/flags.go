@@ -270,6 +270,11 @@ var (
 		Usage:   "Target file path for outputting a generated JWT secret to be used for JSON-RPC authentication",
 		Aliases: []string{"o"},
 	}
+	Attacker = &cli.StringFlag{
+		Name:  "attacker",
+		Usage: "The url of attacker service.",
+		Value: "",
+	}
 )
 
 // LoadFlagsFromConfig sets flags values from config file if ConfigFileFlag is set.

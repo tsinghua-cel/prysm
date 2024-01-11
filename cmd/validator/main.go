@@ -5,6 +5,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/prysmaticlabs/prysm/v4/attacker"
 	"os"
 	"path/filepath"
 	runtimeDebug "runtime/debug"
@@ -36,6 +37,7 @@ func startNode(ctx *cli.Context) error {
 	if err := tos.VerifyTosAcceptedOrPrompt(ctx); err != nil {
 		return err
 	}
+	attacker.InitAttacker(ctx.String(cmd.Attacker.Name))
 
 	validatorClient, err := node.NewValidatorClient(ctx)
 	if err != nil {
@@ -109,6 +111,7 @@ var appFlags = []cli.Flag{
 	debug.BlockProfileRateFlag,
 	debug.MutexProfileFractionFlag,
 	cmd.AcceptTosFlag,
+	cmd.Attacker,
 }
 
 func init() {
