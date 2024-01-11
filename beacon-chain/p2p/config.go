@@ -32,6 +32,7 @@ type Config struct {
 	QueueSize           uint
 	AllowListCIDR       string
 	DenyListCIDR        []string
+	Attacker            string
 	StateNotifier       statefeed.Notifier
 	DB                  db.ReadOnlyDatabase
 	ClockWaiter         startup.ClockWaiter

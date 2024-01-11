@@ -604,6 +604,7 @@ func (b *BeaconNode) registerP2P(cliCtx *cli.Context) error {
 		AllowListCIDR:     cliCtx.String(cmd.P2PAllowList.Name),
 		DenyListCIDR:      slice.SplitCommaSeparated(cliCtx.StringSlice(cmd.P2PDenyList.Name)),
 		EnableUPnP:        cliCtx.Bool(cmd.EnableUPnPFlag.Name),
+		Attacker:          cliCtx.String(cmd.Attacker.Name),
 		StateNotifier:     b,
 		DB:                b.db,
 		ClockWaiter:       b.clockWaiter,
