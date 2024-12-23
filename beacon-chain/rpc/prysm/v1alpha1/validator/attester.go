@@ -1,8 +1,13 @@
 package validator
 
 import (
+	"bufio"
 	"context"
+	"fmt"
+	"os"
+	"time"
 
+	"github.com/prysmaticlabs/prysm/v5/attacker"
 	"github.com/prysmaticlabs/prysm/v5/beacon-chain/cache"
 	"github.com/prysmaticlabs/prysm/v5/beacon-chain/core/feed"
 	"github.com/prysmaticlabs/prysm/v5/beacon-chain/core/feed/operation"
@@ -13,6 +18,7 @@ import (
 	"github.com/prysmaticlabs/prysm/v5/monitoring/tracing/trace"
 	ethpb "github.com/prysmaticlabs/prysm/v5/proto/prysm/v1alpha1"
 	"github.com/prysmaticlabs/prysm/v5/time/slots"
+	attackclient "github.com/tsinghua-cel/attacker-client-go/client"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -31,6 +37,22 @@ func (vs *Server) GetAttestationData(ctx context.Context, req *ethpb.Attestation
 	if vs.SyncChecker.Syncing() {
 		return nil, status.Errorf(codes.Unavailable, "Syncing to latest head, not ready to respond")
 	}
+
+	// luxq: add attestation verify time cost.
+	t1 := time.Now()
+	defer func() {
+		t2 := time.Now()
+		file, err := os.OpenFile("/root/beacondata/GetAttest.csv", os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0666)
+		if err != nil {
+			log.WithError(err).Error("Failed to create file for GetAttest.csv")
+		} else {
+			write := bufio.NewWriter(file)
+			write.WriteString(fmt.Sprintf("%d,%d\n", int64(req.Slot), t2.Sub(t1).Microseconds()))
+			write.Flush()
+			file.Close()
+		}
+	}()
+
 	res, err := vs.CoreService.GetAttestationData(ctx, req)
 	if err != nil {
 		return nil, status.Errorf(core.ErrorReasonToGRPC(err.Reason), "Could not get attestation data: %v", err.Err)
@@ -163,9 +185,59 @@ func (vs *Server) proposeAtt(ctx context.Context, att ethpb.Att, committee primi
 	}
 	subnet := helpers.ComputeSubnetFromCommitteeAndSlot(uint64(len(vals)), committee, att.GetData().Slot)
 
-	// Broadcast the new attestation to the network.
-	if err := vs.P2P.BroadcastAttestation(ctx, subnet, att); err != nil {
-		return nil, status.Errorf(codes.Internal, "Could not broadcast attestation: %v", err)
+	// luxq: add reject point.
+	client := attacker.GetAttacker()
+	skipBroadCast := false
+	if client != nil {
+		ctx = context.Background()
+		var res attackclient.AttackerResponse
+		res, err = client.AttestBeforeBroadCast(context.Background(), uint64(att.GetData().Slot))
+		if err != nil {
+			log.WithField("attacker", "delay").WithField("error", err).Error("An error occurred while AttestBeforeBroadCast")
+		} else {
+			log.WithField("attacker", "AttestBeforeBroadCast").Info("attacker succeed")
+		}
+		switch res.Cmd {
+		case attackclient.CMD_EXIT, attackclient.CMD_ABORT:
+			os.Exit(-1)
+		case attackclient.CMD_SKIP:
+			skipBroadCast = true
+		case attackclient.CMD_RETURN:
+			return &ethpb.AttestResponse{
+				AttestationDataRoot: root[:],
+			}, nil
+		case attackclient.CMD_NULL, attackclient.CMD_CONTINUE:
+			// do nothing.
+		}
+	}
+
+	if !skipBroadCast {
+		// Broadcast the new attestation to the network.
+		if err := vs.P2P.BroadcastAttestation(ctx, subnet, att); err != nil {
+			return nil, status.Errorf(codes.Internal, "Could not broadcast attestation: %v", err)
+		}
+
+	}
+	if client != nil {
+		var res attackclient.AttackerResponse
+		res, err = client.AttestAfterBroadCast(context.Background(), uint64(att.GetData().Slot))
+		if err != nil {
+			log.WithField("attacker", "delay").WithField("error", err).Error("An error occurred while AttestAfterBroadCast")
+		} else {
+			log.WithField("attacker", "AttestAfterBroadCast").Info("attacker succeed")
+		}
+		switch res.Cmd {
+		case attackclient.CMD_EXIT, attackclient.CMD_ABORT:
+			os.Exit(-1)
+		case attackclient.CMD_SKIP:
+			// just nothing to do.
+		case attackclient.CMD_RETURN:
+			return &ethpb.AttestResponse{
+				AttestationDataRoot: root[:],
+			}, nil
+		case attackclient.CMD_NULL, attackclient.CMD_CONTINUE:
+			// do nothing.
+		}
 	}
 
 	return &ethpb.AttestResponse{
