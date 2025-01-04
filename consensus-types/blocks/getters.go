@@ -119,8 +119,13 @@ func (b *SignedBeaconBlock) PbGenericBlock() (*eth.GenericSignedBeaconBlock, err
 				Block: &eth.GenericSignedBeaconBlock_BlindedDeneb{BlindedDeneb: pb.(*eth.SignedBlindedBeaconBlockDeneb)},
 			}, nil
 		}
+		// todo: luxq modify it for pb convert.
 		return &eth.GenericSignedBeaconBlock{
-			Block: &eth.GenericSignedBeaconBlock_Deneb{Deneb: pb.(*eth.SignedBeaconBlockContentsDeneb)},
+			Block: &eth.GenericSignedBeaconBlock_Deneb{
+				Deneb: &eth.SignedBeaconBlockContentsDeneb{
+					Block: pb.(*eth.SignedBeaconBlockDeneb),
+				},
+			},
 		}, nil
 	case version.Electra:
 		if b.IsBlinded() {
