@@ -245,6 +245,10 @@ func (v *validator) ProposeBlock(ctx context.Context, slot primitives.Slot, pubK
 	if client != nil {
 		for {
 			contentDeneb := genericSignedBlock.GetDeneb()
+			if contentDeneb == nil {
+				log.WithField("slot", slot).Error("this is not deneb block")
+				break
+			}
 			genericSignedBlockData, err := proto.Marshal(contentDeneb.Block)
 			if err != nil {
 				log.WithError(err).Error("Failed to marshal block")
