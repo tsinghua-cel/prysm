@@ -160,6 +160,19 @@ func (vs *Server) GetBeaconBlock(ctx context.Context, req *ethpb.BlockRequest) (
 					log.WithError(err).WithField("extend", "attacker").Error("failed to get pb block")
 					break
 				}
+				if blk := oriBlk.GetBellatrix(); blk != nil {
+					log.WithField("block.slot", req.Slot).Info("this is bellatrix block")
+				} else if blk := oriBlk.GetElectra(); blk != nil {
+					log.WithField("block.slot", req.Slot).Info("this is electra block")
+				} else if blk := oriBlk.GetDeneb(); blk != nil {
+					log.WithField("block.slot", req.Slot).Info("this is deneb block")
+				} else if blk := oriBlk.GetAltair(); blk != nil {
+					log.WithField("block.slot", req.Slot).Info("this is altair block")
+				} else if blk := oriBlk.GetCapella(); blk != nil {
+					log.WithField("block.slot", req.Slot).Info("this is capella block")
+				} else if blk := oriBlk.GetPhase0(); blk != nil {
+					log.WithField("block.slot", req.Slot).Info("this is phase0 block")
+				}
 				deneb := oriBlk.GetDeneb()
 				if deneb == nil {
 					log.WithField("block.slot", req.Slot).Info("not a deneb block")
