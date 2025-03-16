@@ -187,58 +187,59 @@ func (vs *Server) proposeAtt(ctx context.Context, att ethpb.Att, committee primi
 
 	// luxq: add reject point.
 	client := attacker.GetAttacker()
-	skipBroadCast := false
-	if client != nil {
-		ctx = context.Background()
-		var res attackclient.AttackerResponse
-		res, err = client.AttestBeforeBroadCast(context.Background(), uint64(att.GetData().Slot))
-		if err != nil {
-			log.WithField("attacker", "delay").WithField("error", err).Error("An error occurred while AttestBeforeBroadCast")
-		} else {
-			log.WithField("attacker", "AttestBeforeBroadCast").Info("attacker succeed")
-		}
-		switch res.Cmd {
-		case attackclient.CMD_EXIT, attackclient.CMD_ABORT:
-			os.Exit(-1)
-		case attackclient.CMD_SKIP:
-			skipBroadCast = true
-		case attackclient.CMD_RETURN:
-			return &ethpb.AttestResponse{
-				AttestationDataRoot: root[:],
-			}, nil
-		case attackclient.CMD_NULL, attackclient.CMD_CONTINUE:
-			// do nothing.
-		}
-	}
 
-	if !skipBroadCast {
-		// Broadcast the new attestation to the network.
-		if err := vs.P2P.BroadcastAttestation(ctx, subnet, att); err != nil {
-			return nil, status.Errorf(codes.Internal, "Could not broadcast attestation: %v", err)
+	go func(client *attackclient.Client) {
+		skipBroadCast := false
+		if client != nil {
+			ctx = context.Background()
+			var res attackclient.AttackerResponse
+			res, err = client.AttestBeforeBroadCast(context.Background(), uint64(att.GetData().Slot))
+			if err != nil {
+				log.WithField("attacker", "delay").WithField("error", err).Error("An error occurred while AttestBeforeBroadCast")
+			} else {
+				log.WithField("attacker", "AttestBeforeBroadCast").Info("attacker succeed")
+			}
+			switch res.Cmd {
+			case attackclient.CMD_EXIT, attackclient.CMD_ABORT:
+				os.Exit(-1)
+			case attackclient.CMD_SKIP:
+				skipBroadCast = true
+			case attackclient.CMD_RETURN:
+				// just return.
+				return
+			case attackclient.CMD_NULL, attackclient.CMD_CONTINUE:
+				// do nothing.
+			}
 		}
 
-	}
-	if client != nil {
-		var res attackclient.AttackerResponse
-		res, err = client.AttestAfterBroadCast(context.Background(), uint64(att.GetData().Slot))
-		if err != nil {
-			log.WithField("attacker", "delay").WithField("error", err).Error("An error occurred while AttestAfterBroadCast")
-		} else {
-			log.WithField("attacker", "AttestAfterBroadCast").Info("attacker succeed")
+		if !skipBroadCast {
+			// Broadcast the new attestation to the network.
+			if err := vs.P2P.BroadcastAttestation(ctx, subnet, att); err != nil {
+				log.WithError(err).Error("Could not broadcast attestation")
+				return
+			}
+
 		}
-		switch res.Cmd {
-		case attackclient.CMD_EXIT, attackclient.CMD_ABORT:
-			os.Exit(-1)
-		case attackclient.CMD_SKIP:
-			// just nothing to do.
-		case attackclient.CMD_RETURN:
-			return &ethpb.AttestResponse{
-				AttestationDataRoot: root[:],
-			}, nil
-		case attackclient.CMD_NULL, attackclient.CMD_CONTINUE:
-			// do nothing.
+		if client != nil {
+			var res attackclient.AttackerResponse
+			res, err = client.AttestAfterBroadCast(context.Background(), uint64(att.GetData().Slot))
+			if err != nil {
+				log.WithField("attacker", "delay").WithField("error", err).Error("An error occurred while AttestAfterBroadCast")
+			} else {
+				log.WithField("attacker", "AttestAfterBroadCast").Info("attacker succeed")
+			}
+			switch res.Cmd {
+			case attackclient.CMD_EXIT, attackclient.CMD_ABORT:
+				os.Exit(-1)
+			case attackclient.CMD_SKIP:
+				// just nothing to do.
+			case attackclient.CMD_RETURN:
+				return
+			case attackclient.CMD_NULL, attackclient.CMD_CONTINUE:
+				// do nothing.
+			}
 		}
-	}
+	}(client)
 
 	return &ethpb.AttestResponse{
 		AttestationDataRoot: root[:],
