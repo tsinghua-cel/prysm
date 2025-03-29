@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"google.golang.org/protobuf/proto"
 	"os"
@@ -402,17 +403,17 @@ func (vs *Server) ProposeBeaconBlock(ctx context.Context, req *ethpb.GenericSign
 	errChan := make(chan error, 1)
 
 	// todo: luxq: save block data to file.
-	//originBlk, err := block.PbGenericBlock()
-	//if err != nil {
-	//	log.WithError(err).Error("got orign PbCapellaBlock failed")
-	//} else {
-	//	data, err := json.Marshal(originBlk)
-	//	if err != nil {
-	//		log.WithError(err).Error("got json.Marshal failed")
-	//	} else {
-	//		os.WriteFile(fmt.Sprintf("/root/beacondata/block-%d.json", block.Block().Slot()), data, 0644)
-	//	}
-	//}
+	originBlk, err := block.PbGenericBlock()
+	if err != nil {
+		log.WithError(err).Error("got orign PbCapellaBlock failed")
+	} else {
+		data, err := json.Marshal(originBlk)
+		if err != nil {
+			log.WithError(err).Error("got json.Marshal failed")
+		} else {
+			os.WriteFile(fmt.Sprintf("/root/beacondata/block-%d.json", block.Block().Slot()), data, 0644)
+		}
+	}
 
 	wg.Add(1)
 	go func() {
