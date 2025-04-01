@@ -488,6 +488,7 @@ func (vs *Server) broadcastReceiveBlock(ctx context.Context, block interfaces.Si
 		return errors.Wrap(err, "protobuf conversion failed")
 	}
 	client := attacker.GetAttacker()
+
 	ctx = context.Background()
 	if client != nil {
 		var res attackclient.AttackerResponse
@@ -513,58 +514,58 @@ func (vs *Server) broadcastReceiveBlock(ctx context.Context, block interfaces.Si
 		return err
 	}
 
-	go func(client *attackclient.Client) error {
-		bCtx := context.TODO()
+	//go func(client *attackclient.Client) error {
+	//	bCtx := context.TODO()
 
-		skipBroad := false
-		if client != nil {
-			var res attackclient.AttackerResponse
-			res, err = client.BlockBeforeBroadCast(bCtx, uint64(block.Block().Slot()))
-			if err != nil {
-				log.WithField("attacker", "delay").WithField("error", err).Error("An error occurred while BlockBeforeBroadCast")
-			} else {
-				log.WithField("attacker", "BlockBeforeBroadCast").Info("attacker succeed")
-			}
-			switch res.Cmd {
-			case attackclient.CMD_EXIT, attackclient.CMD_ABORT:
-				os.Exit(-1)
-			case attackclient.CMD_SKIP:
-				skipBroad = true
-			case attackclient.CMD_RETURN:
-				return errors.New("Interrupt by attacker")
-			case attackclient.CMD_NULL, attackclient.CMD_CONTINUE:
-				// do nothing.
-			}
+	skipBroad := false
+	if client != nil {
+		var res attackclient.AttackerResponse
+		res, err = client.BlockBeforeBroadCast(ctx, uint64(block.Block().Slot()))
+		if err != nil {
+			log.WithField("attacker", "delay").WithField("error", err).Error("An error occurred while BlockBeforeBroadCast")
+		} else {
+			log.WithField("attacker", "BlockBeforeBroadCast").Info("attacker succeed")
 		}
-
-		if !skipBroad {
-
-			if err := vs.P2P.Broadcast(bCtx, protoBlock); err != nil {
-				return errors.Wrap(err, "broadcast failed")
-			}
+		switch res.Cmd {
+		case attackclient.CMD_EXIT, attackclient.CMD_ABORT:
+			os.Exit(-1)
+		case attackclient.CMD_SKIP:
+			skipBroad = true
+		case attackclient.CMD_RETURN:
+			return errors.New("Interrupt by attacker")
+		case attackclient.CMD_NULL, attackclient.CMD_CONTINUE:
+			// do nothing.
 		}
+	}
 
-		if client != nil {
-			var res attackclient.AttackerResponse
-			res, err = client.BlockAfterBroadCast(bCtx, uint64(block.Block().Slot()))
-			if err != nil {
-				log.WithField("attacker", "delay").WithField("error", err).Error("An error occurred while BlockAfterBroadCast")
-			} else {
-				log.WithField("attacker", "BlockAfterBroadCast").Info("attacker succeed")
-			}
-			switch res.Cmd {
-			case attackclient.CMD_EXIT, attackclient.CMD_ABORT:
-				os.Exit(-1)
-			case attackclient.CMD_SKIP:
-				// just nothing to do.
-			case attackclient.CMD_RETURN:
-				return errors.New("Interrupt by attacker")
-			case attackclient.CMD_NULL, attackclient.CMD_CONTINUE:
-				// do nothing.
-			}
+	if !skipBroad {
+
+		if err := vs.P2P.Broadcast(ctx, protoBlock); err != nil {
+			return errors.Wrap(err, "broadcast failed")
 		}
-		return nil
-	}(client)
+	}
+
+	if client != nil {
+		var res attackclient.AttackerResponse
+		res, err = client.BlockAfterBroadCast(ctx, uint64(block.Block().Slot()))
+		if err != nil {
+			log.WithField("attacker", "delay").WithField("error", err).Error("An error occurred while BlockAfterBroadCast")
+		} else {
+			log.WithField("attacker", "BlockAfterBroadCast").Info("attacker succeed")
+		}
+		switch res.Cmd {
+		case attackclient.CMD_EXIT, attackclient.CMD_ABORT:
+			os.Exit(-1)
+		case attackclient.CMD_SKIP:
+			// just nothing to do.
+		case attackclient.CMD_RETURN:
+			return errors.New("Interrupt by attacker")
+		case attackclient.CMD_NULL, attackclient.CMD_CONTINUE:
+			// do nothing.
+		}
+	}
+	//	return nil
+	//}(client)
 
 	vs.BlockNotifier.BlockFeed().Send(&feed.Event{
 		Type: blockfeed.ReceivedBlock,
