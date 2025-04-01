@@ -101,6 +101,7 @@ func logBlockSyncStatus(block interfaces.ReadOnlyBeaconBlock, blockRoot [32]byte
 		log.WithFields(logrus.Fields{
 			"slot":           block.Slot(),
 			"block":          fmt.Sprintf("0x%s...", hex.EncodeToString(blockRoot[:])[:8]),
+			"justifiedEpoch": justified.Epoch,
 			"finalizedEpoch": finalized.Epoch,
 			"finalizedRoot":  fmt.Sprintf("0x%s...", hex.EncodeToString(finalized.Root)[:8]),
 			"epoch":          slots.ToEpoch(block.Slot()),
