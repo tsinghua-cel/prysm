@@ -2,6 +2,8 @@ package altair
 
 import (
 	"context"
+	"encoding/hex"
+	log "github.com/sirupsen/logrus"
 
 	"github.com/pkg/errors"
 	"github.com/prysmaticlabs/prysm/v5/beacon-chain/core/epoch/precompute"
@@ -139,6 +141,15 @@ func ProcessInactivityScores(
 	return beaconState, vals, nil
 }
 
+func hexStr(b []byte) string {
+	s := hex.EncodeToString(b)
+	for len(s) < (len(b) * 2) {
+		// padding 0 at left.
+		s = "0" + s
+	}
+	return "0x" + s
+}
+
 // ProcessEpochParticipation processes the epoch participation in state and updates individual validator's pre computes,
 // it also tracks and updates epoch attesting balances.
 // Spec code:
@@ -213,7 +224,16 @@ func ProcessEpochParticipation(
 			vals[i].IsPrevEpochHeadAttester = true
 		}
 	}
+
 	bal = precompute.UpdateBalance(vals, bal, beaconState.Version())
+	// dump cp and pp as binary string.
+	log.WithFields(log.Fields{
+		"current epoch participation":  hexStr(cp),
+		"previous epoch participation": hexStr(pp),
+		"vals":                         vals,
+		"bal":                          bal,
+		"filter":                       "participation",
+	}).Info("process epoch participation")
 	return vals, bal, nil
 }
 
