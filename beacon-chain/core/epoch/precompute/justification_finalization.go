@@ -9,6 +9,7 @@ import (
 	"github.com/prysmaticlabs/prysm/v5/config/params"
 	ethpb "github.com/prysmaticlabs/prysm/v5/proto/prysm/v1alpha1"
 	"github.com/prysmaticlabs/prysm/v5/time/slots"
+	log "github.com/sirupsen/logrus"
 )
 
 var errNilState = errors.New("nil state")
@@ -158,6 +159,17 @@ func computeCheckpoints(state state.BeaconState, newBits bitfield.Bitvector4) (*
 
 	justifiedCheckpoint := state.CurrentJustifiedCheckpoint()
 	finalizedCheckpoint := state.FinalizedCheckpoint()
+	fields := log.Fields{
+		"prevEpoch":   prevEpoch,
+		"currEpoch":   currentEpoch,
+		"oldPrevJC":   oldPrevJustifiedCheckpoint,
+		"oldCurrJC":   oldCurrJustifiedCheckpoint,
+		"currJC":      justifiedCheckpoint,
+		"finalizedJC": finalizedCheckpoint,
+		"filter":      "computeCheckpoints",
+	}
+	logger := log.WithFields(fields)
+	logger.Info("goto computeCheckpoints")
 
 	// If 2/3 or more of the total balance attested in the current epoch.
 	if newBits.BitAt(0) && currentEpoch >= justifiedCheckpoint.Epoch {
@@ -167,6 +179,7 @@ func computeCheckpoints(state state.BeaconState, newBits bitfield.Bitvector4) (*
 		}
 		justifiedCheckpoint.Epoch = currentEpoch
 		justifiedCheckpoint.Root = blockRoot
+		logger.WithField("update", "currJC").Info("2/3 or more of the total balance attested in the current epoch")
 	} else if newBits.BitAt(1) && prevEpoch >= justifiedCheckpoint.Epoch {
 		// If 2/3 or more of total balance attested in the previous epoch.
 		blockRoot, err := helpers.BlockRoot(state, prevEpoch)
@@ -175,6 +188,7 @@ func computeCheckpoints(state state.BeaconState, newBits bitfield.Bitvector4) (*
 		}
 		justifiedCheckpoint.Epoch = prevEpoch
 		justifiedCheckpoint.Root = blockRoot
+		logger.WithField("update", "currJC").Info("2/3 or more of total balance attested in the previous epoch.")
 	}
 
 	// Process finalization according to Ethereum Beacon Chain specification.
