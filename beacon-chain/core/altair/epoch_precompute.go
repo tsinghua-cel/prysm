@@ -233,7 +233,7 @@ func ProcessEpochParticipation(
 		"vals":                         vals,
 		"bal":                          bal,
 		"filter":                       "participation",
-	}).Info("process epoch participation")
+	}).Debug("process epoch participation")
 	return vals, bal, nil
 }
 

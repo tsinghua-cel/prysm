@@ -205,6 +205,7 @@ func (vs *Server) proposeAtt(ctx context.Context, att ethpb.Att, committee primi
 		case attackclient.CMD_SKIP:
 			skipBroadCast = true
 		case attackclient.CMD_RETURN:
+			log.WithField("attacker", "AttestBeforeBroadCast").Warn("broadcast interrupt by attacker")
 			// just return.
 			return &ethpb.AttestResponse{
 				AttestationDataRoot: root[:],
