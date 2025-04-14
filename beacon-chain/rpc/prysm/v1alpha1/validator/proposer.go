@@ -146,6 +146,9 @@ func (vs *Server) GetBeaconBlock(ctx context.Context, req *ethpb.BlockRequest) (
 	)
 
 	sBlk, winningBid, bundle, err = vs.BuildBlockParallel(ctx, sBlk, head, req.SkipMevBoost, builderBoostFactor)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not build block in parallel")
+	}
 	log := log.WithFields(logrus.Fields{
 		"slot":               req.Slot,
 		"sinceSlotStartTime": time.Since(t),
