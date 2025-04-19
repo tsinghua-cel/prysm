@@ -28,6 +28,9 @@ const GoodbyeMessageName = "/goodbye"
 // BeaconBlocksByRangeMessageName specifies the name for the beacon blocks by range message topic.
 const BeaconBlocksByRangeMessageName = "/beacon_blocks_by_range"
 
+// PushBeaconBlockName specifies the name for the push beacon block message topic.
+const PushBeaconBlockName = "/push_beacon_block"
+
 // BeaconBlocksByRootsMessageName specifies the name for the beacon blocks by root message topic.
 const BeaconBlocksByRootsMessageName = "/beacon_blocks_by_root"
 
@@ -53,6 +56,8 @@ const (
 	RPCBlocksByRangeTopicV1 = protocolPrefix + BeaconBlocksByRangeMessageName + SchemaVersionV1
 	// RPCBlocksByRootTopicV1 defines the v1 topic for the blocks by root rpc method.
 	RPCBlocksByRootTopicV1 = protocolPrefix + BeaconBlocksByRootsMessageName + SchemaVersionV1
+	// RPCPushBlockTopicV1 defines the v1 topic for the push block rpc method.
+	RPCPushBlockTopicV1 = protocolPrefix + PushBeaconBlockName + SchemaVersionV1
 	// RPCPingTopicV1 defines the v1 topic for the ping rpc method.
 	RPCPingTopicV1 = protocolPrefix + PingMessageName + SchemaVersionV1
 	// RPCMetaDataTopicV1 defines the v1 topic for the metadata rpc method.
@@ -92,6 +97,8 @@ var RPCTopicMappings = map[string]interface{}{
 	// RPC Block By Root Message
 	RPCBlocksByRootTopicV1: new(p2ptypes.BeaconBlockByRootsReq),
 	RPCBlocksByRootTopicV2: new(p2ptypes.BeaconBlockByRootsReq),
+	// RPC Push Block Message
+	RPCPushBlockTopicV1: new(pb.SignedBeaconBlock),
 	// RPC Ping Message
 	RPCPingTopicV1: new(primitives.SSZUint64),
 	// RPC Metadata Message
@@ -114,6 +121,7 @@ var messageMapping = map[string]bool{
 	StatusMessageName:              true,
 	GoodbyeMessageName:             true,
 	BeaconBlocksByRangeMessageName: true,
+	PushBeaconBlockName:            true,
 	BeaconBlocksByRootsMessageName: true,
 	PingMessageName:                true,
 	MetadataMessageName:            true,

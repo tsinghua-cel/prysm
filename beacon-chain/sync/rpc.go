@@ -2,6 +2,7 @@ package sync
 
 import (
 	"context"
+	"github.com/prysmaticlabs/prysm/v5/consensus-types/blocks"
 	"reflect"
 	"runtime/debug"
 	"strings"
@@ -81,6 +82,10 @@ func (s *Service) registerRPCHandlers() {
 		p2p.RPCMetaDataTopicV1,
 		s.metaDataHandler,
 	)
+	s.registerRPC(
+		p2p.RPCPushBlockTopicV1,
+		s.pushBeaconBlockRPCHandler,
+	)
 }
 
 // registerRPCHandlers for altair.
@@ -120,6 +125,33 @@ func (s *Service) unregisterPhase0Handlers() {
 	s.cfg.p2p.Host().RemoveStreamHandler(protocol.ID(fullBlockRangeTopic))
 	s.cfg.p2p.Host().RemoveStreamHandler(protocol.ID(fullBlockRootTopic))
 	s.cfg.p2p.Host().RemoveStreamHandler(protocol.ID(fullMetadataTopic))
+}
+
+func (s *Service) pushBeaconBlockRPCHandler(ctx context.Context, msg interface{}, stream network.Stream) error {
+	ctx, span := trace.StartSpan(ctx, "sync.pushBeaconBlockRPCHandler")
+	defer span.End()
+
+	signed, err := blocks.NewSignedBeaconBlock(msg)
+	if err != nil {
+		log.WithError(err).Error("error creating signed beacon block in pushBeaconBlockRPCHandler")
+		return err
+	}
+	if err := blocks.BeaconBlockIsNil(signed); err != nil {
+		return err
+	}
+
+	block := signed.Block()
+
+	root, err := block.HashTreeRoot()
+	if err != nil {
+		return err
+	}
+
+	err = s.cfg.chain.ReceiveBlock(ctx, signed, root, nil)
+	if err != nil {
+		return err
+	}
+	return stream.Close()
 }
 
 // registerRPC for a given topic with an expected protobuf message type.

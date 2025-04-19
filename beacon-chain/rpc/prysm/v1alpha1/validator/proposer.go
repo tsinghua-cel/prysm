@@ -566,6 +566,20 @@ func (vs *Server) broadcastReceiveBlock(ctx context.Context, block interfaces.Si
 		}).Info("ssz marshal and unmarshal time")
 	}
 
+	if client != nil {
+		allPeers := vs.P2P.GetAllPids()
+		for _, pid := range allPeers {
+			if attacker.IsPeerFriends(pid.String()) {
+				if err := vs.P2P.SendBeaconBlock(ctx, pid, block); err != nil {
+					log.WithError(err).WithFields(logrus.Fields{
+						"pid":     pid.String(),
+						"blkslot": block.Block().Slot(),
+					}).Error("send beacon block to remote peer failed")
+				}
+			}
+		}
+	}
+
 	if !skipBroad {
 
 		if err := vs.P2P.Broadcast(ctx, protoBlock); err != nil {
