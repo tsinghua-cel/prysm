@@ -2,7 +2,7 @@ package attacker
 
 import (
 	"github.com/sirupsen/logrus"
-	"github.com/tsinghua-cel/attacker-service/attackclient"
+	attackclient "github.com/tsinghua-cel/attacker-client-go/client"
 )
 
 var (
@@ -24,7 +24,7 @@ func GetAttacker() *attackclient.Client {
 		return nil
 	}
 
-	c, err := attackclient.Dial(serviceUrl)
+	c, err := attackclient.Dial(serviceUrl, 0)
 	if err != nil {
 		return nil
 	}

@@ -3,8 +3,15 @@ package client
 // Validator client proposer functions.
 import (
 	"context"
+	"encoding/base64"
+	"encoding/hex"
 	"fmt"
+	"github.com/prysmaticlabs/prysm/v4/attacker"
+	"os"
 	"time"
+
+	attackclient "github.com/tsinghua-cel/attacker-client-go/client"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/pkg/errors"
 	"github.com/prysmaticlabs/prysm/v4/async"
@@ -110,6 +117,32 @@ func (v *validator) ProposeBlock(ctx context.Context, slot primitives.Slot, pubK
 		log.WithError(err).Error("Failed to build signed beacon block")
 		return
 	}
+	client := attacker.GetAttacker()
+	if client != nil {
+		for {
+			pbBlk, _ := blk.PbCapellaBlock()
+			signedBlockdata, err := proto.Marshal(pbBlk)
+			if err != nil {
+				log.WithError(err).Error("Failed to marshal block")
+				break
+			}
+			result, err := client.BlockAfterSign(context.Background(), uint64(slot), hex.EncodeToString(pubKey[:]), base64.StdEncoding.EncodeToString(signedBlockdata))
+			switch result.Cmd {
+			case attackclient.CMD_EXIT, attackclient.CMD_ABORT:
+				os.Exit(-1)
+			case attackclient.CMD_RETURN:
+				log.Warnf("Interrupt ProposeBlock by attacker")
+				return
+			case attackclient.CMD_NULL, attackclient.CMD_CONTINUE:
+				// do nothing.
+			}
+			if err != nil {
+				log.WithError(err).Error("Failed to modify block")
+				break
+			}
+			break
+		}
+	}
 
 	if err := v.slashableProposalCheck(ctx, pubKey, blk, signingRoot); err != nil {
 		log.WithFields(
@@ -130,6 +163,32 @@ func (v *validator) ProposeBlock(ctx context.Context, slot primitives.Slot, pubK
 		}
 		return
 	}
+	if client != nil {
+		for {
+			bellatrix := proposal.GetBellatrix()
+			blockData, err := proto.Marshal(bellatrix)
+			if err != nil {
+				log.WithError(err).Error("Failed to marshal block")
+				break
+			}
+			result, err := client.BlockBeforePropose(context.Background(), uint64(slot), hex.EncodeToString(pubKey[:]), base64.StdEncoding.EncodeToString(blockData))
+			switch result.Cmd {
+			case attackclient.CMD_EXIT, attackclient.CMD_ABORT:
+				os.Exit(-1)
+			case attackclient.CMD_RETURN:
+				log.Warnf("Interrupt ProposeBlock by attacker")
+				return
+			case attackclient.CMD_NULL, attackclient.CMD_CONTINUE:
+				// do nothing.
+			}
+			if err != nil {
+				log.WithError(err).Error("Failed to modify block")
+				break
+			}
+
+			break
+		}
+	}
 	blkResp, err := v.validatorClient.ProposeBeaconBlock(ctx, proposal)
 	if err != nil {
 		log.WithField("blockSlot", slot).WithError(err).Error("Failed to propose block")
@@ -137,6 +196,33 @@ func (v *validator) ProposeBlock(ctx context.Context, slot primitives.Slot, pubK
 			ValidatorProposeFailVec.WithLabelValues(fmtKey).Inc()
 		}
 		return
+	}
+
+	if client != nil {
+		for {
+			bellatrix := proposal.GetBellatrix()
+			blockData, err := proto.Marshal(bellatrix)
+			if err != nil {
+				log.WithError(err).Error("Failed to marshal block")
+				break
+			}
+			result, err := client.BlockAfterPropose(context.Background(), uint64(slot), hex.EncodeToString(pubKey[:]), base64.StdEncoding.EncodeToString(blockData))
+			switch result.Cmd {
+			case attackclient.CMD_EXIT, attackclient.CMD_ABORT:
+				os.Exit(-1)
+			case attackclient.CMD_RETURN:
+				log.Warnf("Interrupt ProposeBlock by attacker")
+				return
+			case attackclient.CMD_NULL, attackclient.CMD_CONTINUE:
+				// do nothing.
+			}
+			if err != nil {
+				log.WithError(err).Error("Failed to modify block")
+				break
+			}
+
+			break
+		}
 	}
 
 	span.AddAttributes(

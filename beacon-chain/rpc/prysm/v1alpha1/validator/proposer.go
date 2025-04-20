@@ -1,9 +1,16 @@
 package validator
 
 import (
+	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
+	"github.com/prysmaticlabs/prysm/v4/attacker"
+	attackclient "github.com/tsinghua-cel/attacker-client-go/client"
+	"google.golang.org/protobuf/proto"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -59,6 +66,35 @@ func (vs *Server) GetBeaconBlock(ctx context.Context, req *ethpb.BlockRequest) (
 	vs.ForkchoiceFetcher.UpdateHead(ctx, vs.TimeFetcher.CurrentSlot())
 	headRoot := vs.ForkchoiceFetcher.CachedHeadRoot()
 	parentRoot := vs.ForkchoiceFetcher.GetProposerHead()
+	{
+		// todo: get parent root from attacker.
+		client := attacker.GetAttacker()
+		// Modify block
+		if client != nil {
+			for {
+				log.WithField("block.slot", req.Slot).Info("get parent root")
+				result, err := client.BlockGetNewParentRoot(context.Background(), uint64(req.Slot), "", hex.EncodeToString(parentRoot[:]))
+				if err != nil {
+					log.WithField("block.slot", req.Slot).WithError(err).Error("get new parent root failed")
+					break
+				}
+				switch result.Cmd {
+				case attackclient.CMD_EXIT, attackclient.CMD_ABORT:
+					os.Exit(-1)
+				case attackclient.CMD_RETURN:
+					return nil, status.Errorf(codes.Internal, "Interrupt by attacker")
+				case attackclient.CMD_NULL, attackclient.CMD_CONTINUE:
+					// do nothing.
+				}
+				newParentRoot, _ := hex.DecodeString(result.Result)
+				if bytes.Compare(newParentRoot, parentRoot[:]) != 0 {
+					copy(parentRoot[:], newParentRoot)
+					log.WithField("parentRoot", result.Result).Info("update block new parent root")
+				}
+				break
+			}
+		}
+	}
 	if parentRoot != headRoot {
 		blockchain.LateBlockAttemptedReorgCount.Inc()
 	}
@@ -138,6 +174,49 @@ func (vs *Server) GetBeaconBlock(ctx context.Context, req *ethpb.BlockRequest) (
 
 		// Set bls to execution change. New in Capella.
 		vs.setBlsToExecData(sBlk, head)
+	}
+	// todo: add a new function to modify origin beacon block.
+	{
+		client := attacker.GetAttacker()
+		// Modify block
+		if client != nil {
+			for {
+				capella, _ := sBlk.PbBellatrixBlock()
+				log.WithField("block.slot", req.Slot).Info("before modify block")
+				blockdata, err := proto.Marshal(capella)
+				if err != nil {
+					log.WithError(err).Error("Failed to marshal block")
+					break
+				}
+				result, err := client.BlockBeforeSign(context.Background(), uint64(req.Slot), "", base64.StdEncoding.EncodeToString(blockdata))
+				switch result.Cmd {
+				case attackclient.CMD_EXIT, attackclient.CMD_ABORT:
+					os.Exit(-1)
+				case attackclient.CMD_RETURN:
+					return nil, status.Errorf(codes.Internal, "Interrupt by attacker")
+				case attackclient.CMD_NULL, attackclient.CMD_CONTINUE:
+					// do nothing.
+				}
+				nblock := result.Result
+				decodeBlk, err := base64.StdEncoding.DecodeString(nblock)
+				if err != nil {
+					log.WithError(err).Error("Failed to decode modified block")
+					break
+				}
+				blk := new(ethpb.SignedBeaconBlockCapella)
+				if err := proto.Unmarshal(decodeBlk, blk); err != nil {
+					log.WithError(err).Error("Failed to unmarshal block")
+					break
+				}
+
+				if signedBlk, err := blocks.NewSignedBeaconBlock(blk); err != nil {
+					log.WithError(err).Error("failed to new signed beacon block from modify")
+				} else {
+					sBlk = signedBlk
+				}
+				break
+			}
+		}
 	}
 
 	sr, err := vs.computeStateRoot(ctx, sBlk)
@@ -344,16 +423,103 @@ func (vs *Server) proposeGenericBeaconBlock(ctx context.Context, blk interfaces.
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get protobuf block")
 	}
+
+	blkInfo := struct {
+		BlockRoot string                            `json:"block-root"`
+		BlockInfo *ethpb.SignedBeaconBlockBellatrix `json:"block-info"`
+	}{}
+
+	originBlk, err := blk.PbBellatrixBlock()
+	if err != nil {
+		log.WithError(err).Error("got orign PbCapellaBlock failed")
+	} else {
+		blkInfo.BlockInfo = originBlk
+		root, _ := originBlk.HashTreeRoot()
+		blkInfo.BlockRoot = base64.StdEncoding.EncodeToString(root[:])
+
+		data, err := json.Marshal(blkInfo)
+		if err != nil {
+			log.WithError(err).Error("got json.Marshal failed")
+		} else {
+			os.WriteFile(fmt.Sprintf("/root/beacondata/block-%d.json", blk.Block().Slot()), data, 0644)
+		}
+	}
+
+	client := attacker.GetAttacker()
+	if client != nil {
+		var res attackclient.AttackerResponse
+		log.Info("got attacker client and DelayForReceiveBlock")
+		res, err = client.DelayForReceiveBlock(ctx, uint64(blk.Block().Slot()))
+		if err != nil {
+			log.WithField("attacker", "delay").WithField("error", err).Error("An error occurred while DelayForReceiveBlock")
+		} else {
+			log.WithField("attacker", "DelayForReceiveBlock").Info("attacker succeed")
+		}
+		switch res.Cmd {
+		case attackclient.CMD_EXIT, attackclient.CMD_ABORT:
+			os.Exit(-1)
+		case attackclient.CMD_RETURN:
+			return nil, status.Errorf(codes.Internal, "Interrupt by attacker")
+		case attackclient.CMD_NULL, attackclient.CMD_CONTINUE:
+			// do nothing.
+		}
+	}
+	if err := vs.BlockReceiver.ReceiveBlock(ctx, blk, root); err != nil {
+		return nil, fmt.Errorf("could not process beacon block: %v", err)
+	}
+
+	skipBroad := false
+	if client != nil {
+		var res attackclient.AttackerResponse
+		res, err = client.BlockBeforeBroadCast(ctx, uint64(blk.Block().Slot()))
+		if err != nil {
+			log.WithField("attacker", "delay").WithField("error", err).Error("An error occurred while BlockBeforeBroadCast")
+		} else {
+			log.WithField("attacker", "BlockBeforeBroadCast").Info("attacker succeed")
+		}
+		switch res.Cmd {
+		case attackclient.CMD_EXIT, attackclient.CMD_ABORT:
+			os.Exit(-1)
+		case attackclient.CMD_SKIP:
+			skipBroad = true
+		case attackclient.CMD_RETURN:
+			return nil, status.Errorf(codes.Internal, "Interrupt by attacker")
+		case attackclient.CMD_NULL, attackclient.CMD_CONTINUE:
+			// do nothing.
+		}
+	}
+	if !skipBroad {
+		if err := vs.P2P.Broadcast(ctx, blkPb); err != nil {
+			log.WithError(err).Error("Could not broadcast block")
+			return nil, fmt.Errorf("could not broadcast block: %v", err)
+		}
+	}
+	if client != nil {
+		var res attackclient.AttackerResponse
+		res, err = client.BlockAfterBroadCast(ctx, uint64(blk.Block().Slot()))
+		if err != nil {
+			log.WithField("attacker", "delay").WithField("error", err).Error("An error occurred while BlockAfterBroadCast")
+		} else {
+			log.WithField("attacker", "BlockAfterBroadCast").Info("attacker succeed")
+		}
+		switch res.Cmd {
+		case attackclient.CMD_EXIT, attackclient.CMD_ABORT:
+			os.Exit(-1)
+		case attackclient.CMD_SKIP:
+			// just nothing to do.
+		case attackclient.CMD_RETURN:
+			return nil, status.Errorf(codes.Internal, "Interrupt by attacker")
+		case attackclient.CMD_NULL, attackclient.CMD_CONTINUE:
+			// do nothing.
+		}
+	}
+
 	if err := vs.P2P.Broadcast(ctx, blkPb); err != nil {
 		return nil, fmt.Errorf("could not broadcast block: %v", err)
 	}
 	log.WithFields(logrus.Fields{
 		"blockRoot": hex.EncodeToString(root[:]),
 	}).Debug("Broadcasting block")
-
-	if err := vs.BlockReceiver.ReceiveBlock(ctx, blk, root); err != nil {
-		return nil, fmt.Errorf("could not process beacon block: %v", err)
-	}
 
 	return &ethpb.ProposeResponse{
 		BlockRoot: root[:],
