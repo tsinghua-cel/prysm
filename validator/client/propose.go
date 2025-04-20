@@ -165,7 +165,7 @@ func (v *validator) ProposeBlock(ctx context.Context, slot primitives.Slot, pubK
 	}
 	if client != nil {
 		for {
-			bellatrix := proposal.GetBellatrix()
+			bellatrix := proposal.GetCapella()
 			blockData, err := proto.Marshal(bellatrix)
 			if err != nil {
 				log.WithError(err).Error("Failed to marshal block")
@@ -200,7 +200,7 @@ func (v *validator) ProposeBlock(ctx context.Context, slot primitives.Slot, pubK
 
 	if client != nil {
 		for {
-			bellatrix := proposal.GetBellatrix()
+			bellatrix := proposal.GetCapella()
 			blockData, err := proto.Marshal(bellatrix)
 			if err != nil {
 				log.WithError(err).Error("Failed to marshal block")

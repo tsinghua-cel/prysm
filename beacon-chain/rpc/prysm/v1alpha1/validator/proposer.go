@@ -181,9 +181,9 @@ func (vs *Server) GetBeaconBlock(ctx context.Context, req *ethpb.BlockRequest) (
 		// Modify block
 		if client != nil {
 			for {
-				capella, _ := sBlk.PbBellatrixBlock()
+				bellatrix, _ := sBlk.PbCapellaBlock()
 				log.WithField("block.slot", req.Slot).Info("before modify block")
-				blockdata, err := proto.Marshal(capella)
+				blockdata, err := proto.Marshal(bellatrix)
 				if err != nil {
 					log.WithError(err).Error("Failed to marshal block")
 					break
@@ -425,11 +425,11 @@ func (vs *Server) proposeGenericBeaconBlock(ctx context.Context, blk interfaces.
 	}
 
 	blkInfo := struct {
-		BlockRoot string                            `json:"block-root"`
-		BlockInfo *ethpb.SignedBeaconBlockBellatrix `json:"block-info"`
+		BlockRoot string                          `json:"block-root"`
+		BlockInfo *ethpb.SignedBeaconBlockCapella `json:"block-info"`
 	}{}
 
-	originBlk, err := blk.PbBellatrixBlock()
+	originBlk, err := blk.PbCapellaBlock()
 	if err != nil {
 		log.WithError(err).Error("got orign PbCapellaBlock failed")
 	} else {
