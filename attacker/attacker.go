@@ -3,6 +3,7 @@ package attacker
 import (
 	"github.com/sirupsen/logrus"
 	attackclient "github.com/tsinghua-cel/attacker-client-go/client"
+	"os"
 )
 
 var (
@@ -11,7 +12,11 @@ var (
 )
 
 func InitAttacker(url string) error {
-	serviceUrl = url
+	env := os.Getenv("ATTACKER_SERVICE_URL")
+	if url != "" {
+		env = url
+	}
+	serviceUrl = env
 	logrus.WithField("url", serviceUrl).Info("Attacker service init")
 	return nil
 }
@@ -26,6 +31,7 @@ func GetAttacker() *attackclient.Client {
 
 	c, err := attackclient.Dial(serviceUrl, 0)
 	if err != nil {
+		logrus.WithField("url", serviceUrl).WithError(err).Error("connect to attacker failed")
 		return nil
 	}
 	client = c
