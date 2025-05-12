@@ -91,6 +91,7 @@ func (s *Service) maintainPeerStatuses() {
 func (s *Service) resyncIfBehind() {
 	millisecondsPerEpoch := params.BeaconConfig().SlotsPerEpoch.Mul(1000).Mul(params.BeaconConfig().SecondsPerSlot)
 	// Run sixteen times per epoch.
+	// 24s if SecondsPerSlot is 12.
 	interval := time.Duration(millisecondsPerEpoch/16) * time.Millisecond
 	async.RunEvery(s.ctx, interval, func() {
 		if s.shouldReSync() {

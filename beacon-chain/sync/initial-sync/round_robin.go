@@ -101,6 +101,10 @@ func (s *Service) syncToFinalizedEpoch(ctx context.Context, genesis time.Time) e
 	if err != nil {
 		return err
 	}
+	log.WithFields(logrus.Fields{
+		"highestFinalizedSlot": highestFinalizedSlot,
+		"current head slot":    s.cfg.Chain.HeadSlot(),
+	}).Debug("syncToFinalizedEpoch")
 	if s.cfg.Chain.HeadSlot() >= highestFinalizedSlot {
 		// No need to sync, already synced to the finalized slot.
 		log.Debug("Already synced to finalized epoch")
