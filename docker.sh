@@ -4,7 +4,7 @@
 #docker push tscel/bf.beacon:v5.2.0
 #docker push tscel/bf.validator:v5.2.0
 
-docker build --no-cache -t tscel/bf.prysm:v5.2.0 -f Dockerfile.prysm .
-docker build --no-cache -t tscel/prysmctl:v5.2.0 -f Dockerfile.prysmctl .
-docker push tscel/bf.prysm:v5.2.0
-docker push tscel/prysmctl:v5.2.0
+docker build --no-cache -t tscel/bf.prysm:v5.2.0-liveness -f Dockerfile.prysm .
+docker build --no-cache -t tscel/prysmctl:v5.2.0-liveness -f Dockerfile.prysmctl .
+docker push tscel/bf.prysm:v5.2.0-liveness
+docker push tscel/prysmctl:v5.2.0-liveness
