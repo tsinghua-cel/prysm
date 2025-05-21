@@ -3,6 +3,8 @@ package helpers
 import (
 	"bytes"
 	"context"
+	"encoding/hex"
+	"strconv"
 
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
@@ -338,7 +340,31 @@ func BeaconProposerIndexAtSlot(ctx context.Context, state state.ReadOnlyBeaconSt
 		return 0, errors.Wrap(err, "could not get active indices")
 	}
 
+	log.WithFields(log.Fields{
+		"activeIndices":                indicesToStr(indices),
+		"slot":                         slot,
+		"originSeed":                   hex.EncodeToString(seed[:]),
+		"DomainBeaconProposer":         hex.EncodeToString(params.BeaconConfig().DomainBeaconProposer[:]),
+		"DomainRandao":                 params.BeaconConfig().DomainRandao,
+		"EPOCHS_PER_HISTORICAL_VECTOR": params.BeaconConfig().EpochsPerHistoricalVector,
+	}).Info("compute proposer at slot")
+
 	return ComputeProposerIndex(state, indices, seedWithSlotHash)
+}
+
+func indicesToStr(activeIndices []primitives.ValidatorIndex) string {
+	if len(activeIndices) == 0 {
+		return "[]"
+	}
+	str := "["
+	for i, idx := range activeIndices {
+		str += strconv.Itoa(int(idx))
+		if i != len(activeIndices)-1 {
+			str += ", "
+		}
+	}
+	str += "]"
+	return str
 }
 
 // ComputeProposerIndex returns the index sampled by effective balance, which is used to calculate proposer.
@@ -361,7 +387,7 @@ func BeaconProposerIndexAtSlot(ctx context.Context, state state.ReadOnlyBeaconSt
 //	      if effective_balance * MAX_RANDOM_BYTE >= MAX_EFFECTIVE_BALANCE_ELECTRA * random_byte: #[Modified in Electra:EIP7251]
 //	          return candidate_index
 //	      i += 1
-func ComputeProposerIndex(bState state.ReadOnlyBeaconState, activeIndices []primitives.ValidatorIndex, seed [32]byte) (primitives.ValidatorIndex, error) {
+func ComputeProposerIndex(bState state.ReadOnlyBeaconState, activeIndices []primitives.ValidatorIndex, seed [32]byte) (primitives.ValidatorIndex, error) { // luxq: go with here.
 	length := uint64(len(activeIndices))
 	if length == 0 {
 		return 0, errors.New("empty active indices list")
