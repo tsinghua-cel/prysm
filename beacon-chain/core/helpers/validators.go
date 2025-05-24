@@ -341,12 +341,14 @@ func BeaconProposerIndexAtSlot(ctx context.Context, state state.ReadOnlyBeaconSt
 	}
 
 	log.WithFields(log.Fields{
-		"activeIndices":                indicesToStr(indices),
-		"slot":                         slot,
-		"originSeed":                   hex.EncodeToString(seed[:]),
-		"DomainBeaconProposer":         hex.EncodeToString(params.BeaconConfig().DomainBeaconProposer[:]),
-		"DomainRandao":                 params.BeaconConfig().DomainRandao,
-		"EPOCHS_PER_HISTORICAL_VECTOR": params.BeaconConfig().EpochsPerHistoricalVector,
+		"activeIndices":             indicesToStr(indices),
+		"slot":                      slot,
+		"originSeed":                hex.EncodeToString(seed[:]),
+		"DomainBeaconProposer":      hex.EncodeToString(params.BeaconConfig().DomainBeaconProposer[:]),
+		"DomainRandao":              params.BeaconConfig().DomainRandao[:],
+		"EpochsPerHistoricalVector": params.BeaconConfig().EpochsPerHistoricalVector,
+		"MinSeedLookahead":          params.BeaconConfig().MinSeedLookahead,
+		"MaxEffectiveBalance":       params.BeaconConfig().MaxEffectiveBalance,
 	}).Info("compute proposer at slot")
 
 	return ComputeProposerIndex(state, indices, seedWithSlotHash)
