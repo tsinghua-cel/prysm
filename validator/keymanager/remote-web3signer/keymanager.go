@@ -163,6 +163,11 @@ func NewKeymanager(ctx context.Context, cfg *SetupConfig) (*Keymanager, error) {
 	return km, nil
 }
 
+func (km *Keymanager) FetchValidatingPrivateKeys(ctx context.Context) ([][32]byte, error) {
+	// This keymanager does not support fetching private keys.
+	return nil, errors.New("remote web3signer keymanager does not support fetching private keys")
+}
+
 func (km *Keymanager) refreshRemoteKeysFromFileChangesWithRetry(ctx context.Context, retryDelay time.Duration) error {
 	if ctx.Err() != nil {
 		return ctx.Err()
