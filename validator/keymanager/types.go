@@ -13,7 +13,7 @@ import (
 
 // IKeymanager defines a general keymanager interface for Prysm wallets.
 type IKeymanager interface {
-	PublicKeysFetcher
+	KeysFetcher
 	Signer
 	KeyChangeSubscriber
 	KeyStoreExtractor

