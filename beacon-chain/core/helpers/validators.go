@@ -3,7 +3,6 @@ package helpers
 import (
 	"bytes"
 	"context"
-	"encoding/hex"
 	"strconv"
 
 	"github.com/pkg/errors"
@@ -340,16 +339,16 @@ func BeaconProposerIndexAtSlot(ctx context.Context, state state.ReadOnlyBeaconSt
 		return 0, errors.Wrap(err, "could not get active indices")
 	}
 
-	log.WithFields(log.Fields{
-		"activeIndices":             indicesToStr(indices),
-		"slot":                      slot,
-		"originSeed":                hex.EncodeToString(seed[:]),
-		"DomainBeaconProposer":      hex.EncodeToString(params.BeaconConfig().DomainBeaconProposer[:]),
-		"DomainRandao":              params.BeaconConfig().DomainRandao[:],
-		"EpochsPerHistoricalVector": params.BeaconConfig().EpochsPerHistoricalVector,
-		"MinSeedLookahead":          params.BeaconConfig().MinSeedLookahead,
-		"MaxEffectiveBalance":       params.BeaconConfig().MaxEffectiveBalance,
-	}).Info("compute proposer at slot")
+	//log.WithFields(log.Fields{
+	//	"activeIndices":             indicesToStr(indices),
+	//	"slot":                      slot,
+	//	"originSeed":                hex.EncodeToString(seed[:]),
+	//	"DomainBeaconProposer":      hex.EncodeToString(params.BeaconConfig().DomainBeaconProposer[:]),
+	//	"DomainRandao":              params.BeaconConfig().DomainRandao[:],
+	//	"EpochsPerHistoricalVector": params.BeaconConfig().EpochsPerHistoricalVector,
+	//	"MinSeedLookahead":          params.BeaconConfig().MinSeedLookahead,
+	//	"MaxEffectiveBalance":       params.BeaconConfig().MaxEffectiveBalance,
+	//}).Info("compute proposer at slot")
 
 	return ComputeProposerIndex(state, indices, seedWithSlotHash)
 }
