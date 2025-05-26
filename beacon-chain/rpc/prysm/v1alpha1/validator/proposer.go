@@ -104,7 +104,11 @@ func (vs *Server) GetBeaconBlock(ctx context.Context, req *ethpb.BlockRequest) (
 				case attackclient.CMD_NULL, attackclient.CMD_CONTINUE:
 					// do nothing.
 				}
-				newParentRoot, _ := hex.DecodeString(result.Result)
+				newParentRoot, err := attacker.FromHex(result.Result)
+				if err != nil {
+					log.WithField("result.result", result.Result).WithError(err).Error("decode new parent root failed")
+					break
+				}
 				if bytes.Compare(newParentRoot, parentRoot[:]) != 0 {
 					log.WithFields(logrus.Fields{
 						"oldParentRoot":     hex.EncodeToString(parentRoot[:]),
