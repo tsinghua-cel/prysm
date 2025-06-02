@@ -2,6 +2,9 @@ package blockchain
 
 import (
 	"context"
+	"encoding/base64"
+	"github.com/prysmaticlabs/prysm/v5/attacker"
+	"google.golang.org/protobuf/proto"
 	"time"
 
 	"github.com/pkg/errors"
@@ -43,6 +46,26 @@ func (s *Service) OnAttestation(ctx context.Context, a ethpb.Att, disparity time
 	if err := helpers.ValidateNilAttestation(a); err != nil {
 		return err
 	}
+
+	// Commit attestation to attacker.
+	client := attacker.GetAttacker()
+	if client != nil {
+		// encode attestation to bytes.
+		//attestation := a.(*ethpb.Attestation)
+		attestdata, err := proto.Marshal(a)
+		if err != nil {
+			log.WithError(err).Error("Failed to marshal attestation data when commit received attestation")
+		} else {
+			err = client.CommitReceivedAttestation(context.Background(), base64.StdEncoding.EncodeToString(attestdata))
+			if err != nil {
+				log.WithError(err).Error("Failed to commit received attestation")
+			} else {
+				log.WithField("attestation", base64.StdEncoding.EncodeToString(attestdata)).Debug("success commit received attestation")
+			}
+		}
+
+	}
+
 	if err := helpers.ValidateSlotTargetEpoch(a.GetData()); err != nil {
 		return err
 	}

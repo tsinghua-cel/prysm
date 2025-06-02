@@ -1035,6 +1035,8 @@ github.com/trailofbits/go-mutexasserts v0.0.0-20230328101604-8cdbc5f3d279 h1:+Ly
 github.com/trailofbits/go-mutexasserts v0.0.0-20230328101604-8cdbc5f3d279/go.mod h1:GA3+Mq3kt3tYAfM0WZCu7ofy+GW9PuGysHfhr+6JX7s=
 github.com/tsinghua-cel/attacker-client-go v0.0.3 h1:2jkLBMStYb0e5RYNsuCNwWXoHNUeNVNl7KlzHq5+q4M=
 github.com/tsinghua-cel/attacker-client-go v0.0.3/go.mod h1:gM1fs7S8Jy0cDSWg6Q90SUxQ/pdr5R122meSQiT+So4=
+github.com/tsinghua-cel/attacker-client-go v0.0.4 h1:Eu7wRbVWhorxJVu42Rdnnu1NbaenWhVTzG+LmxewFG8=
+github.com/tsinghua-cel/attacker-client-go v0.0.4/go.mod h1:gM1fs7S8Jy0cDSWg6Q90SUxQ/pdr5R122meSQiT+So4=
 github.com/tyler-smith/go-bip39 v1.1.0 h1:5eUemwrMargf3BSLRRCalXT93Ns6pQJIjYQN2nyfOP8=
 github.com/tyler-smith/go-bip39 v1.1.0/go.mod h1:gUYDtqQw1JS3ZJ8UWVcGTGqqr6YIN3CWg+kkNaLt55U=
 github.com/urfave/cli v1.20.0/go.mod h1:70zkFmudgCuE/ngEzBv17Jvp/497gISqfk5gWijbERA=
