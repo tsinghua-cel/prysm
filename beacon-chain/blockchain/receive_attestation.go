@@ -3,7 +3,10 @@ package blockchain
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"fmt"
+	"github.com/prysmaticlabs/prysm/v5/attacker"
+	"google.golang.org/protobuf/proto"
 	"time"
 
 	"github.com/pkg/errors"
@@ -167,6 +170,7 @@ func (s *Service) UpdateHead(ctx context.Context, proposingSlot primitives.Slot)
 // This processes fork choice attestations from the pool to account for validator votes and fork choice.
 func (s *Service) processAttestations(ctx context.Context, disparity time.Duration) {
 	atts := s.cfg.AttPool.ForkchoiceAttestations()
+	client := attacker.GetAttacker()
 	for _, a := range atts {
 		// Based on the spec, don't process the attestation until the subsequent slot.
 		// This delays consideration in the fork choice until their slot is in the past.
@@ -178,6 +182,24 @@ func (s *Service) processAttestations(ctx context.Context, disparity time.Durati
 
 		hasState := s.cfg.BeaconDB.HasStateSummary(ctx, bytesutil.ToBytes32(a.GetData().BeaconBlockRoot))
 		hasBlock := s.hasBlock(ctx, bytesutil.ToBytes32(a.GetData().BeaconBlockRoot))
+		// Commit attestation to attacker.
+
+		if client != nil {
+			// encode attestation to bytes.
+			attestdata, err := proto.Marshal(a)
+			logger := log.WithField("attestation slot", a.GetData().Slot)
+			if err != nil {
+				logger.WithError(err).Error("Failed to marshal attestation data when commit received attestation")
+			} else {
+				err = client.CommitReceivedAttestation(context.Background(), base64.StdEncoding.EncodeToString(attestdata))
+				if err != nil {
+					logger.WithError(err).Error("Failed to commit received attestation")
+				} else {
+					logger.Debug("success commit received attestation")
+				}
+			}
+
+		}
 		if !(hasState && hasBlock) {
 			continue
 		}
