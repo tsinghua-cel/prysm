@@ -4,7 +4,9 @@ package helpers
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
+	log "github.com/sirupsen/logrus"
 	"sort"
 
 	"github.com/pkg/errors"
@@ -551,6 +553,13 @@ func PrecomputeProposerIndices(state state.ReadOnlyBeaconState, activeIndices []
 		if err != nil {
 			return nil, err
 		}
+		log.WithFields(log.Fields{
+			"epoch":        e,
+			"slot":         uint64(slot) + i,
+			"stateSlot":    state.Slot(),
+			"seed":         hex.EncodeToString(seed[:]),
+			"seedWithSlot": hex.EncodeToString(seedWithSlot),
+		}).Debug("PrecomputeProposerIndices - compute proposer")
 		proposerIndices[i] = index
 	}
 

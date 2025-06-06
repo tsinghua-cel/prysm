@@ -3,6 +3,7 @@ package helpers
 import (
 	"bytes"
 	"context"
+	"encoding/hex"
 	"strconv"
 
 	"github.com/pkg/errors"
@@ -349,6 +350,13 @@ func BeaconProposerIndexAtSlot(ctx context.Context, state state.ReadOnlyBeaconSt
 	//	"MinSeedLookahead":          params.BeaconConfig().MinSeedLookahead,
 	//	"MaxEffectiveBalance":       params.BeaconConfig().MaxEffectiveBalance,
 	//}).Info("compute proposer at slot")
+	log.WithFields(log.Fields{
+		"epoch":        e,
+		"slot":         uint64(slot),
+		"stateSlot":    state.Slot(),
+		"seed":         hex.EncodeToString(seed[:]),
+		"seedWithSlot": hex.EncodeToString(seedWithSlot),
+	}).Debug("BeaconProposerIndexAtSlot - compute proposer")
 
 	return ComputeProposerIndex(state, indices, seedWithSlotHash)
 }
@@ -419,6 +427,14 @@ func ComputeProposerIndex(bState state.ReadOnlyBeaconState, activeIndices []prim
 		}
 
 		if effectiveBal*maxRandomByte >= maxEB*uint64(randomByte) {
+			log.WithFields(log.Fields{
+				"stateSlot":      bState.Slot(),
+				"validatorCount": bState.NumValidators(),
+				"activeCount":    len(activeIndices),
+				"proposer":       candidateIndex,
+				"seedWithSlot":   hex.EncodeToString(seed[:]),
+				"activeIndices":  indicesToStr(activeIndices),
+			}).Debug("compute proposer index")
 			return candidateIndex, nil
 		}
 	}

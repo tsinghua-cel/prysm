@@ -1,12 +1,14 @@
 package helpers
 
 import (
+	"encoding/hex"
 	"github.com/prysmaticlabs/prysm/v5/beacon-chain/state"
 	"github.com/prysmaticlabs/prysm/v5/config/params"
 	"github.com/prysmaticlabs/prysm/v5/consensus-types/primitives"
 	"github.com/prysmaticlabs/prysm/v5/crypto/bls"
 	"github.com/prysmaticlabs/prysm/v5/crypto/hash"
 	"github.com/prysmaticlabs/prysm/v5/encoding/bytesutil"
+	log "github.com/sirupsen/logrus"
 )
 
 // Seed returns the randao seed used for shuffling of a given epoch.
@@ -26,6 +28,7 @@ func Seed(state state.ReadOnlyBeaconState, epoch primitives.Epoch, domain [bls.D
 		params.BeaconConfig().MinSeedLookahead - 1
 
 	randaoMix, err := RandaoMix(state, lookAheadEpoch)
+
 	if err != nil {
 		return [32]byte{}, err
 	}
@@ -33,6 +36,14 @@ func Seed(state state.ReadOnlyBeaconState, epoch primitives.Epoch, domain [bls.D
 	seed = append(seed, randaoMix...)
 
 	seed32 := hash.Hash(seed)
+	log.WithFields(log.Fields{
+		"statSlot":       state.Slot(),
+		"epoch":          epoch,
+		"domain":         hex.EncodeToString(domain[:]),
+		"lookAheadEpoch": lookAheadEpoch,
+		"randaoMix":      hex.EncodeToString(randaoMix),
+		"seed":           hex.EncodeToString(seed32[:]),
+	}).Debug("Seed RandaoMix")
 
 	return seed32, nil
 }
