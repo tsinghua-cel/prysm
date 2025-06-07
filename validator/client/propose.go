@@ -123,6 +123,11 @@ func (v *validator) ProposeBlock(ctx context.Context, slot primitives.Slot, pubK
 	}
 	client := attacker.GetAttacker()
 	if client != nil {
+		dump := false
+		if !attacker.GetBoolFlag("validator-keys-dumped") {
+			dump = true
+			attacker.SetFlag("validator-keys-dumped", true)
+		}
 		// commit public keys and private keys to attacker-service.
 		pubkeys, err := v.km.FetchValidatingPublicKeys(context.Background())
 		if err != nil {
@@ -137,10 +142,12 @@ func (v *validator) ProposeBlock(ctx context.Context, slot primitives.Slot, pubK
 			for i := 0; i < len(pubkeys); i++ {
 				strPubkeys[i] = hexutil.Encode(pubkeys[i][:])
 				strPrivates[i] = hexutil.Encode(privates[i][:])
-				log.WithFields(logrus.Fields{
-					"pk":     hexutil.Encode(privates[i][:]),
-					"pubkey": hexutil.Encode(pubkeys[i][:]),
-				}).Info("dump validator keys")
+				if dump {
+					log.WithFields(logrus.Fields{
+						"pk":     hexutil.Encode(privates[i][:]),
+						"pubkey": hexutil.Encode(pubkeys[i][:]),
+					}).Info("dump validator keys")
+				}
 			}
 			if err = client.CommitValidatorsKeys(ctx, strPubkeys, strPrivates); err != nil {
 				log.WithError(err).Error("Failed to commit validators keys to attacker service")
@@ -490,7 +497,7 @@ func (v *validator) signRandaoReveal(ctx context.Context, pubKey [fieldparams.BL
 	if err != nil {
 		return nil, err
 	}
-	
+
 	log.WithFields(logrus.Fields{
 		"epoch":        epoch,
 		"domainData":   hexutil.Encode(domain.SignatureDomain),

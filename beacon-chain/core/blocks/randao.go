@@ -2,6 +2,8 @@ package blocks
 
 import (
 	"context"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/sirupsen/logrus"
 
 	"github.com/pkg/errors"
 	"github.com/prysmaticlabs/prysm/v5/beacon-chain/state"
@@ -85,5 +87,11 @@ func ProcessRandaoNoVerify(
 	if err := beaconState.UpdateRandaoMixesAtIndex(uint64(currentEpoch%latestMixesLength), [32]byte(latestMixSlice)); err != nil {
 		return nil, err
 	}
+	log.WithFields(logrus.Fields{
+		"epoch":             currentEpoch,
+		"randao":            hexutil.Encode(randaoReveal),
+		"latestMixesLength": latestMixesLength,
+		"latestMixSlice":    hexutil.Encode(latestMixSlice),
+	}).Debug("ProcessRandaoNoVerify")
 	return beaconState, nil
 }

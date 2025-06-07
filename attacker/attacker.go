@@ -14,6 +14,7 @@ var (
 	initOnce   sync.Once
 	serviceUrl string
 	client     *attackclient.Client
+	flagCache  sync.Map
 )
 
 func FromHex(s string) ([]byte, error) {
@@ -47,4 +48,18 @@ func GetAttacker() *attackclient.Client {
 	}
 	client = c
 	return client
+}
+
+func GetBoolFlag(key string) bool {
+	if v, ok := flagCache.Load(key); ok {
+		if b, ok := v.(bool); ok {
+			return b
+		}
+		return false
+	}
+	return false
+}
+
+func SetFlag(key string, value interface{}) {
+	flagCache.Store(key, value)
 }
