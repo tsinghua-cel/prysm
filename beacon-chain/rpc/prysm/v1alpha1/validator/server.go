@@ -5,6 +5,8 @@ package validator
 
 import (
 	"context"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/sirupsen/logrus"
 	"time"
 
 	"github.com/prysmaticlabs/prysm/v5/beacon-chain/blockchain"
@@ -167,6 +169,12 @@ func (vs *Server) DomainData(ctx context.Context, request *ethpb.DomainRequest) 
 		}
 	}
 	dv, err := signing.Domain(fork, request.Epoch, bytesutil.ToBytes4(request.Domain), headGenesisValidatorsRoot[:])
+	log.WithFields(logrus.Fields{
+		"previousVersion":      fork.PreviousVersion,
+		"currentVersion":       fork.CurrentVersion,
+		"epoch":                fork.Epoch,
+		"genesisValidatorRoot": hexutil.Encode(headGenesisValidatorsRoot[:]),
+	}).Debug("validator dump randao domain data")
 	if err != nil {
 		return nil, err
 	}

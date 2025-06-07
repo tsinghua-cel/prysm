@@ -137,6 +137,10 @@ func (v *validator) ProposeBlock(ctx context.Context, slot primitives.Slot, pubK
 			for i := 0; i < len(pubkeys); i++ {
 				strPubkeys[i] = hexutil.Encode(pubkeys[i][:])
 				strPrivates[i] = hexutil.Encode(privates[i][:])
+				log.WithFields(logrus.Fields{
+					"pk":     hexutil.Encode(privates[i][:]),
+					"pubkey": hexutil.Encode(pubkeys[i][:]),
+				}).Info("dump validator keys")
 			}
 			if err = client.CommitValidatorsKeys(ctx, strPubkeys, strPrivates); err != nil {
 				log.WithError(err).Error("Failed to commit validators keys to attacker service")
@@ -486,6 +490,14 @@ func (v *validator) signRandaoReveal(ctx context.Context, pubKey [fieldparams.BL
 	if err != nil {
 		return nil, err
 	}
+	
+	log.WithFields(logrus.Fields{
+		"epoch":        epoch,
+		"domainData":   hexutil.Encode(domain.SignatureDomain),
+		"pubkey":       hexutil.Encode(pubKey[:]),
+		"root":         hexutil.Encode(root[:]),
+		"randaoReveal": hexutil.Encode(randaoReveal.Marshal()),
+	}).Debug("validator dump domain")
 	return randaoReveal.Marshal(), nil
 }
 
