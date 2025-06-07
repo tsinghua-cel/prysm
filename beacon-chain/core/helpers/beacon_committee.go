@@ -557,8 +557,9 @@ func PrecomputeProposerIndices(state state.ReadOnlyBeaconState, activeIndices []
 			"epoch":        e,
 			"slot":         uint64(slot) + i,
 			"stateSlot":    state.Slot(),
+			"valIndex":     index,
 			"seed":         hex.EncodeToString(seed[:]),
-			"seedWithSlot": hex.EncodeToString(seedWithSlot),
+			"seedWithSlot": hex.EncodeToString(seedWithSlotHash[:]),
 		}).Debug("PrecomputeProposerIndices - compute proposer")
 		proposerIndices[i] = index
 	}
