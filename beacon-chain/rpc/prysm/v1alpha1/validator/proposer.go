@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	ssz "github.com/prysmaticlabs/fastssz"
 	"google.golang.org/protobuf/proto"
 	"os"
 	"strings"
@@ -188,6 +189,7 @@ func (vs *Server) GetBeaconBlock(ctx context.Context, req *ethpb.BlockRequest) (
 					log.WithField("block.slot", req.Slot).Info("not a deneb block")
 					break
 				}
+				deneb.UnmarshalSSZ()
 				genBlk := deneb.Block
 
 				log.WithField("block.slot", req.Slot).Info("before modify block")
@@ -211,7 +213,9 @@ func (vs *Server) GetBeaconBlock(ctx context.Context, req *ethpb.BlockRequest) (
 					log.WithError(err).Error("Failed to decode modified block")
 					break
 				}
+
 				blk := new(ethpb.SignedBeaconBlockDeneb)
+
 				if err := proto.Unmarshal(decodeBlk, blk); err != nil {
 					log.WithError(err).Error("Failed to unmarshal block")
 					break
@@ -542,6 +546,25 @@ func (vs *Server) broadcastReceiveBlock(ctx context.Context, block interfaces.Si
 		case attackclient.CMD_NULL, attackclient.CMD_CONTINUE:
 			// do nothing.
 		}
+	}
+
+	if block.Block().Slot() > 10 && block.Block().Slot() < 30 {
+		//
+		var data []byte
+		start := time.Now()
+		castMsg, ok := protoBlock.(ssz.Marshaler)
+		if ok {
+			data, err = castMsg.MarshalSSZ()
+		}
+		end1 := time.Now()
+
+		err = block.UnmarshalSSZ(data)
+		end2 := time.Now()
+		log.WithFields(logrus.Fields{
+			"slot":         block.Block().Slot(),
+			"marshalSSZ":   end1.Sub(start).Milliseconds(),
+			"unmarshalSSZ": end2.Sub(end1).Milliseconds(),
+		}).Info("ssz marshal and unmarshal time")
 	}
 
 	if !skipBroad {
