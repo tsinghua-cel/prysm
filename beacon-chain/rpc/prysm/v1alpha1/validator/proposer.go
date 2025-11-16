@@ -189,7 +189,6 @@ func (vs *Server) GetBeaconBlock(ctx context.Context, req *ethpb.BlockRequest) (
 					log.WithField("block.slot", req.Slot).Info("not a deneb block")
 					break
 				}
-				deneb.UnmarshalSSZ()
 				genBlk := deneb.Block
 
 				log.WithField("block.slot", req.Slot).Info("before modify block")
