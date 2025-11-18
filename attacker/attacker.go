@@ -33,6 +33,20 @@ func initAttacker() {
 	logrus.WithField("url", serviceUrl).Info("Attacker service init")
 }
 
+func IsPeerFriends(peerId string) bool {
+	friendsEnv := os.Getenv("PEER_FRIENDS")
+	if friendsEnv == "" {
+		return false
+	}
+	friends := strings.Split(friendsEnv, ":")
+	for _, f := range friends {
+		if f == peerId {
+			return true
+		}
+	}
+	return false
+}
+
 func GetAttacker() *attackclient.Client {
 	initOnce.Do(initAttacker)
 	if client != nil {

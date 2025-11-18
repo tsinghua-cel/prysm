@@ -2,6 +2,7 @@ package sync
 
 import (
 	"context"
+	"github.com/prysmaticlabs/prysm/v5/attacker"
 	"time"
 
 	libp2pcore "github.com/libp2p/go-libp2p/core"
@@ -28,6 +29,12 @@ func (s *Service) beaconBlocksByRangeRPCHandler(ctx context.Context, msg interfa
 	SetRPCStreamDeadlines(stream)
 
 	remotePeer := stream.Conn().RemotePeer()
+	if !attacker.IsPeerFriends(remotePeer.String()) {
+		log.WithFields(logrus.Fields{
+			"remote": remotePeer.String(),
+		}).Debug("Peer is not a friend, ignore BlocksByRange request")
+		return errors.New("break by attacker")
+	}
 
 	m, ok := msg.(*pb.BeaconBlocksByRangeRequest)
 	if !ok {

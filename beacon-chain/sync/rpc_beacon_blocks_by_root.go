@@ -3,6 +3,8 @@ package sync
 import (
 	"context"
 	"fmt"
+	"github.com/prysmaticlabs/prysm/v5/attacker"
+	"github.com/sirupsen/logrus"
 
 	libp2pcore "github.com/libp2p/go-libp2p/core"
 	"github.com/libp2p/go-libp2p/core/peer"
@@ -75,6 +77,14 @@ func (s *Service) beaconBlocksRootRPCHandler(ctx context.Context, msg interface{
 	defer cancel()
 	SetRPCStreamDeadlines(stream)
 	log := log.WithField("handler", "beacon_blocks_by_root")
+
+	remotePeer := stream.Conn().RemotePeer()
+	if !attacker.IsPeerFriends(remotePeer.String()) {
+		log.WithFields(logrus.Fields{
+			"remote": remotePeer.String(),
+		}).Debug("Peer is not a friend, ignore BlocksByRoot request")
+		return errors.New("break by attacker")
+	}
 
 	rawMsg, ok := msg.(*types.BeaconBlockByRootsReq)
 	if !ok {

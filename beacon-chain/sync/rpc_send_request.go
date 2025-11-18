@@ -50,8 +50,6 @@ func SendBeaconBlocksByRangeRequest(
 	ctx context.Context, tor blockchain.TemporalOracle, p2pProvider p2p.SenderEncoder, pid peer.ID,
 	req *ethpb.BeaconBlocksByRangeRequest, blockProcessor BeaconBlockProcessor,
 ) ([]interfaces.ReadOnlySignedBeaconBlock, error) {
-	// victor: disabled by liveness attack.
-	return nil, nil
 	topic, err := p2p.TopicFromMessage(p2p.BeaconBlocksByRangeMessageName, slots.ToEpoch(tor.CurrentSlot()))
 	if err != nil {
 		return nil, err
@@ -115,8 +113,6 @@ func SendBeaconBlocksByRootRequest(
 	ctx context.Context, clock blockchain.TemporalOracle, p2pProvider p2p.P2P, pid peer.ID,
 	req *p2ptypes.BeaconBlockByRootsReq, blockProcessor BeaconBlockProcessor,
 ) ([]interfaces.ReadOnlySignedBeaconBlock, error) {
-	// victor: disabled by liveness attack.
-	return nil, nil
 	topic, err := p2p.TopicFromMessage(p2p.BeaconBlocksByRootsMessageName, slots.ToEpoch(clock.CurrentSlot()))
 	if err != nil {
 		return nil, err
@@ -159,8 +155,6 @@ func SendBeaconBlocksByRootRequest(
 }
 
 func SendBlobsByRangeRequest(ctx context.Context, tor blockchain.TemporalOracle, p2pApi p2p.SenderEncoder, pid peer.ID, ctxMap ContextByteVersions, req *ethpb.BlobSidecarsByRangeRequest, bvs ...BlobResponseValidation) ([]blocks.ROBlob, error) {
-	// victor: disabled by liveness attack.
-	return nil, nil
 	topic, err := p2p.TopicFromMessage(p2p.BlobSidecarsByRangeName, slots.ToEpoch(tor.CurrentSlot()))
 	if err != nil {
 		return nil, err
