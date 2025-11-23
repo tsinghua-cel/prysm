@@ -150,6 +150,7 @@ var OmitContextBytesV1 = map[string]bool{
 	GoodbyeMessageName:             true,
 	BeaconBlocksByRangeMessageName: true,
 	BeaconBlocksByRootsMessageName: true,
+	PushBeaconBlockName:            true,
 	PingMessageName:                true,
 	MetadataMessageName:            true,
 }
