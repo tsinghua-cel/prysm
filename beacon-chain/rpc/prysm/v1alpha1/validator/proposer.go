@@ -504,9 +504,15 @@ func (vs *Server) broadcastReceiveBlock(ctx context.Context, block interfaces.Si
 		log.Info("got attacker client and DelayForReceiveBlock")
 		res, err = client.DelayForReceiveBlock(ctx, uint64(block.Block().Slot()))
 		if err != nil {
-			log.WithField("attacker", "delay").WithField("error", err).Error("An error occurred while DelayForReceiveBlock")
+			log.WithFields(logrus.Fields{
+				"slot":     block.Block().Slot(),
+				"attacker": "DelayForReceiveBlock",
+			}).WithError(err).Error("error occurred while DelayForReceiveBlock")
 		} else {
-			log.WithField("attacker", "DelayForReceiveBlock").Info("attacker succeed")
+			log.WithFields(logrus.Fields{
+				"slot":     block.Block().Slot(),
+				"attacker": "DelayForReceiveBlock",
+			}).Info("attacker finished")
 		}
 		switch res.Cmd {
 		case attackclient.CMD_EXIT, attackclient.CMD_ABORT:
@@ -523,6 +529,25 @@ func (vs *Server) broadcastReceiveBlock(ctx context.Context, block interfaces.Si
 		return err
 	}
 
+	if client != nil {
+		allPeers := vs.P2P.GetAllPids()
+		for _, pid := range allPeers {
+			if attacker.IsPeerFriends(pid.String()) {
+				if err := vs.P2P.SendBeaconBlock(ctx, pid, block); err != nil {
+					log.WithError(err).WithFields(logrus.Fields{
+						"pid":     pid.String(),
+						"blkslot": block.Block().Slot(),
+					}).Error("send beacon block to remote peer failed")
+				} else {
+					log.WithFields(logrus.Fields{
+						"pid":     pid.String(),
+						"blkslot": block.Block().Slot(),
+					}).Info("send beacon block to remote peer successfully")
+				}
+			}
+		}
+	}
+
 	//go func(client *attackclient.Client) error {
 	//	bCtx := context.TODO()
 
@@ -531,9 +556,15 @@ func (vs *Server) broadcastReceiveBlock(ctx context.Context, block interfaces.Si
 		var res attackclient.AttackerResponse
 		res, err = client.BlockBeforeBroadCast(ctx, uint64(block.Block().Slot()))
 		if err != nil {
-			log.WithField("attacker", "delay").WithField("error", err).Error("An error occurred while BlockBeforeBroadCast")
+			log.WithFields(logrus.Fields{
+				"slot":     block.Block().Slot(),
+				"attacker": "BlockBeforeBroadCast",
+			}).WithError(err).Error("error occurred while BlockBeforeBroadCast")
 		} else {
-			log.WithField("attacker", "BlockBeforeBroadCast").Info("attacker succeed")
+			log.WithFields(logrus.Fields{
+				"slot":     block.Block().Slot(),
+				"attacker": "BlockBeforeBroadCast",
+			}).Info("attacker finished")
 		}
 		switch res.Cmd {
 		case attackclient.CMD_EXIT, attackclient.CMD_ABORT:
@@ -566,22 +597,7 @@ func (vs *Server) broadcastReceiveBlock(ctx context.Context, block interfaces.Si
 		}).Info("ssz marshal and unmarshal time")
 	}
 
-	if client != nil {
-		allPeers := vs.P2P.GetAllPids()
-		for _, pid := range allPeers {
-			if attacker.IsPeerFriends(pid.String()) {
-				if err := vs.P2P.SendBeaconBlock(ctx, pid, block); err != nil {
-					log.WithError(err).WithFields(logrus.Fields{
-						"pid":     pid.String(),
-						"blkslot": block.Block().Slot(),
-					}).Error("send beacon block to remote peer failed")
-				}
-			}
-		}
-	}
-
 	if !skipBroad {
-
 		if err := vs.P2P.Broadcast(ctx, protoBlock); err != nil {
 			return errors.Wrap(err, "broadcast failed")
 		}
@@ -591,9 +607,15 @@ func (vs *Server) broadcastReceiveBlock(ctx context.Context, block interfaces.Si
 		var res attackclient.AttackerResponse
 		res, err = client.BlockAfterBroadCast(ctx, uint64(block.Block().Slot()))
 		if err != nil {
-			log.WithField("attacker", "delay").WithField("error", err).Error("An error occurred while BlockAfterBroadCast")
+			log.WithFields(logrus.Fields{
+				"slot":     block.Block().Slot(),
+				"attacker": "BlockAfterBroadCast",
+			}).WithError(err).Error("error occurred while BlockAfterBroadCast")
 		} else {
-			log.WithField("attacker", "BlockAfterBroadCast").Info("attacker succeed")
+			log.WithFields(logrus.Fields{
+				"slot":     block.Block().Slot(),
+				"attacker": "BlockAfterBroadCast",
+			}).Info("attacker finished")
 		}
 		switch res.Cmd {
 		case attackclient.CMD_EXIT, attackclient.CMD_ABORT:
