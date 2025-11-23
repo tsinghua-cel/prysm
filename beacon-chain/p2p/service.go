@@ -517,7 +517,7 @@ func (s *Service) SendBeaconBlock(ctx context.Context, pid peer.ID, blk interfac
 	ctx, span := trace.StartSpan(ctx, "p2p.SendBeaconBlock")
 	defer span.End()
 
-	topic, err := TopicFromMessage(BeaconBlocksByRootsMessageName, slots.ToEpoch(blk.Block().Slot()))
+	topic, err := TopicFromMessage(PushBeaconBlockName, slots.ToEpoch(blk.Block().Slot()))
 	if err != nil {
 		return err
 	}
