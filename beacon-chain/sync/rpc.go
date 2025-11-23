@@ -51,6 +51,10 @@ func (s *Service) registerRPCHandlers() {
 			p2p.RPCPingTopicV1,
 			s.pingHandler,
 		)
+		s.registerRPC(
+			p2p.RPCPushBlockTopicV1,
+			s.pushBeaconBlockRPCHandler,
+		)
 		s.registerRPCHandlersAltair()
 
 		if currEpoch >= params.BeaconConfig().DenebForkEpoch {
