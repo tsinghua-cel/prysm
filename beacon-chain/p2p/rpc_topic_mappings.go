@@ -98,7 +98,7 @@ var RPCTopicMappings = map[string]interface{}{
 	RPCBlocksByRootTopicV1: new(p2ptypes.BeaconBlockByRootsReq),
 	RPCBlocksByRootTopicV2: new(p2ptypes.BeaconBlockByRootsReq),
 	// RPC Push Block Message
-	RPCPushBlockTopicV1: new(pb.SignedBeaconBlock),
+	RPCPushBlockTopicV1: new(pb.SignedBeaconBlockDeneb),
 	// RPC Ping Message
 	RPCPingTopicV1: new(primitives.SSZUint64),
 	// RPC Metadata Message

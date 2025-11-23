@@ -531,18 +531,32 @@ func (vs *Server) broadcastReceiveBlock(ctx context.Context, block interfaces.Si
 
 	if client != nil {
 		allPeers := vs.P2P.GetAllPids()
-		for _, pid := range allPeers {
-			if attacker.IsPeerFriends(pid.String()) {
-				if err := vs.P2P.SendBeaconBlock(ctx, pid, block); err != nil {
-					log.WithError(err).WithFields(logrus.Fields{
-						"pid":     pid.String(),
-						"blkslot": block.Block().Slot(),
-					}).Error("send beacon block to remote peer failed")
-				} else {
-					log.WithFields(logrus.Fields{
-						"pid":     pid.String(),
-						"blkslot": block.Block().Slot(),
-					}).Info("send beacon block to remote peer successfully")
+		gblk, err := block.PbGenericBlock()
+		if err != nil {
+			log.WithError(err).WithFields(logrus.Fields{
+				"blkslot": block.Block().Slot(),
+			}).Error("send beacon block to remote peer failed, got generic block failed")
+		}
+		denebBlk := gblk.GetDeneb()
+		if denebBlk == nil {
+			log.WithError(err).WithFields(logrus.Fields{
+				"blkslot": block.Block().Slot(),
+			}).Error("send beacon block to remote peer failed, blk is not deneb")
+		} else {
+
+			for _, pid := range allPeers {
+				if attacker.IsPeerFriends(pid.String()) {
+					if err := vs.P2P.SendBeaconBlock(ctx, pid, denebBlk.GetBlock()); err != nil {
+						log.WithError(err).WithFields(logrus.Fields{
+							"pid":     pid.String(),
+							"blkslot": block.Block().Slot(),
+						}).Error("send beacon block to remote peer failed")
+					} else {
+						log.WithFields(logrus.Fields{
+							"pid":     pid.String(),
+							"blkslot": block.Block().Slot(),
+						}).Info("send beacon block to remote peer successfully")
+					}
 				}
 			}
 		}

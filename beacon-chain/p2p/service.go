@@ -6,7 +6,7 @@ package p2p
 import (
 	"context"
 	"crypto/ecdsa"
-	"github.com/prysmaticlabs/prysm/v5/consensus-types/interfaces"
+	eth "github.com/prysmaticlabs/prysm/v5/proto/prysm/v1alpha1"
 	"sync"
 	"time"
 
@@ -513,11 +513,11 @@ func (s *Service) isInitialized() bool {
 }
 
 // SendBeaconBlock sends a beacon block to a specific peer.
-func (s *Service) SendBeaconBlock(ctx context.Context, pid peer.ID, blk interfaces.SignedBeaconBlock) error {
+func (s *Service) SendBeaconBlock(ctx context.Context, pid peer.ID, blk *eth.SignedBeaconBlockDeneb) error {
 	ctx, span := trace.StartSpan(ctx, "p2p.SendBeaconBlock")
 	defer span.End()
 
-	topic, err := TopicFromMessage(PushBeaconBlockName, slots.ToEpoch(blk.Block().Slot()))
+	topic, err := TopicFromMessage(PushBeaconBlockName, slots.ToEpoch(blk.Block.Slot))
 	if err != nil {
 		return err
 	}
