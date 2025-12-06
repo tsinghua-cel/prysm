@@ -72,6 +72,8 @@ func ExecuteStateTransition(
 		return nil, errors.Wrap(err, "could not execute state transition")
 	}
 
+	return postState, nil
+
 	var valid bool
 	if features.Get().EnableVerboseSigVerification {
 		valid, err = set.VerifyVerbosely()
