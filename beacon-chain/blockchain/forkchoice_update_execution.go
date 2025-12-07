@@ -118,6 +118,7 @@ func (s *Service) shouldOverrideFCU(newHeadRoot [32]byte, proposingSlot primitiv
 	}
 	currentSlot := s.CurrentSlot()
 	if proposingSlot == currentSlot {
+		return false
 		proposerHead := s.cfg.ForkChoiceStore.GetProposerHead()
 		if proposerHead != newHeadRoot {
 			return true
