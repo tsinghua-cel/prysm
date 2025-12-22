@@ -37,6 +37,7 @@ type Config struct {
 	HostAddress           string
 	HostDNS               string
 	PrivateKey            string
+	PrivateKeyHex         string
 	DataDir               string
 	DiscoveryDir          string
 	QUICPort              uint

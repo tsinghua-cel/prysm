@@ -97,6 +97,10 @@ func (n *Node) viableForHead(justifiedEpoch, currentEpoch primitives.Epoch) bool
 	if justifiedEpoch == 0 {
 		return true
 	}
+	//log.WithFields(logrus.Fields{
+	//	"slot":            n.slot,
+	//	"justified epoch": n.justifiedEpoch,
+	//}).Debug("forkchoice")
 	// We use n.justifiedEpoch as the voting source because:
 	//   1. if this node is from current epoch, n.justifiedEpoch is the realized justification epoch.
 	//   2. if this node is from a previous epoch, n.justifiedEpoch has already been updated to the unrealized justification epoch.

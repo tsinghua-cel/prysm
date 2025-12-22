@@ -1,8 +1,16 @@
 package validator
 
 import (
+	"bytes"
 	"context"
+	"encoding/base64"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
+	"github.com/OffchainLabs/prysm/v7/attacker"
+	attackclient "github.com/tsinghua-cel/attacker-client-go/client"
+	"google.golang.org/protobuf/proto"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -82,6 +90,42 @@ func (vs *Server) GetBeaconBlock(ctx context.Context, req *ethpb.BlockRequest) (
 		log.WithError(err).Error("Fail to build block: could not get parent state")
 		return nil, err
 	}
+	{
+		// luxq: add point for get parent root.
+		client := attacker.GetAttacker()
+		ctx = context.Background()
+		if client != nil {
+			for {
+				log.WithField("block.slot", req.Slot).Info("get parent root")
+				result, err := client.BlockGetNewParentRoot(context.Background(), uint64(req.Slot), "", hex.EncodeToString(parentRoot[:]))
+				if err != nil {
+					log.WithField("block.slot", req.Slot).WithError(err).Error("get new parent root failed")
+					break
+				}
+				switch result.Cmd {
+				case attackclient.CMD_EXIT, attackclient.CMD_ABORT:
+					os.Exit(-1)
+				case attackclient.CMD_RETURN:
+					return nil, status.Errorf(codes.Internal, "Interrupt by attacker")
+				case attackclient.CMD_NULL, attackclient.CMD_CONTINUE:
+					// do nothing.
+				}
+				newParentRoot, _ := hex.DecodeString(result.Result)
+				if bytes.Compare(newParentRoot, parentRoot[:]) != 0 {
+					log.WithFields(logrus.Fields{
+						"oldParentRoot":     hex.EncodeToString(parentRoot[:]),
+						"baseOldParentRoot": base64.StdEncoding.EncodeToString(parentRoot[:]),
+						"newParentRoot":     hex.EncodeToString(newParentRoot[:]),
+						"baseNewParent":     base64.StdEncoding.EncodeToString(newParentRoot),
+					}).Info("update block new parent root")
+					copy(parentRoot[:], newParentRoot)
+					log.WithField("parentRoot", result.Result).Info("update block new parent root")
+				}
+				break
+			}
+		}
+	}
+
 	sBlk, err := getEmptyBlock(req.Slot)
 	if err != nil {
 		log.WithError(err).Error("Fail to build block: could not get empty block")
@@ -105,7 +149,12 @@ func (vs *Server) GetBeaconBlock(ctx context.Context, req *ethpb.BlockRequest) (
 		builderBoostFactor = primitives.Gwei(req.BuilderBoostFactor.Value)
 	}
 
-	resp, err := vs.BuildBlockParallel(ctx, sBlk, head, req.SkipMevBoost, builderBoostFactor)
+	var (
+		winningBid primitives.Wei
+		bundle     enginev1.BlobsBundler
+	)
+
+	sBlk, winningBid, bundle, err = vs.BuildBlockParallel(ctx, sBlk, head, req.SkipMevBoost, builderBoostFactor)
 	log = log.WithFields(logrus.Fields{
 		"sinceSlotStartTime": time.Since(t),
 		"validator":          sBlk.Block().ProposerIndex(),
@@ -117,7 +166,81 @@ func (vs *Server) GetBeaconBlock(ctx context.Context, req *ethpb.BlockRequest) (
 	}
 
 	log.Info("Finished building block")
-	return resp, nil
+	{
+		client := attacker.GetAttacker()
+		ctx = context.Background()
+		// Modify block
+		if client != nil {
+			for {
+				oriBlk, err := sBlk.PbGenericBlock()
+				if err != nil {
+					log.WithError(err).WithField("extend", "attacker").Error("failed to get pb block")
+					break
+				}
+				if blk := oriBlk.GetBellatrix(); blk != nil {
+					log.WithField("block.slot", req.Slot).Info("this is bellatrix block")
+				} else if blk := oriBlk.GetElectra(); blk != nil {
+					log.WithField("block.slot", req.Slot).Info("this is electra block")
+				} else if blk := oriBlk.GetDeneb(); blk != nil {
+					log.WithField("block.slot", req.Slot).Info("this is deneb block")
+				} else if blk := oriBlk.GetAltair(); blk != nil {
+					log.WithField("block.slot", req.Slot).Info("this is altair block")
+				} else if blk := oriBlk.GetCapella(); blk != nil {
+					log.WithField("block.slot", req.Slot).Info("this is capella block")
+				} else if blk := oriBlk.GetPhase0(); blk != nil {
+					log.WithField("block.slot", req.Slot).Info("this is phase0 block")
+				}
+				deneb := oriBlk.GetDeneb()
+				if deneb == nil {
+					log.WithField("block.slot", req.Slot).Info("not a deneb block")
+					break
+				}
+				genBlk := deneb.Block
+
+				log.WithField("block.slot", req.Slot).Info("before modify block")
+				blockdata, err := proto.Marshal(genBlk)
+				if err != nil {
+					log.WithError(err).Error("Failed to marshal block")
+					break
+				}
+				result, err := client.BlockBeforeSign(context.Background(), uint64(req.Slot), "", base64.StdEncoding.EncodeToString(blockdata))
+				switch result.Cmd {
+				case attackclient.CMD_EXIT, attackclient.CMD_ABORT:
+					os.Exit(-1)
+				case attackclient.CMD_RETURN:
+					return nil, status.Errorf(codes.Internal, "Interrupt by attacker")
+				case attackclient.CMD_NULL, attackclient.CMD_CONTINUE:
+					// do nothing.
+				}
+				nblock := result.Result
+				decodeBlk, err := base64.StdEncoding.DecodeString(nblock)
+				if err != nil {
+					log.WithError(err).Error("Failed to decode modified block")
+					break
+				}
+				blk := new(ethpb.SignedBeaconBlockDeneb)
+				if err := proto.Unmarshal(decodeBlk, blk); err != nil {
+					log.WithError(err).Error("Failed to unmarshal block")
+					break
+				}
+
+				if signedBlk, err := blocks.NewSignedBeaconBlock(blk); err != nil {
+					log.WithError(err).Error("failed to new signed beacon block from modify")
+				} else {
+					sBlk = signedBlk
+				}
+				break
+			}
+		}
+	}
+
+	sr, err := vs.computeStateRoot(ctx, sBlk)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "Could not compute state root: %v", err)
+	}
+	sBlk.SetStateRoot(sr)
+
+	return vs.constructGenericBeaconBlock(sBlk, bundle, winningBid)
 }
 
 func (vs *Server) handleSuccesfulReorgAttempt(ctx context.Context, slot primitives.Slot, parentRoot, _ [32]byte) (state.BeaconState, error) {
@@ -188,7 +311,7 @@ func (vs *Server) getParentState(ctx context.Context, slot primitives.Slot) (sta
 	return head, parentRoot, err
 }
 
-func (vs *Server) BuildBlockParallel(ctx context.Context, sBlk interfaces.SignedBeaconBlock, head state.BeaconState, skipMevBoost bool, builderBoostFactor primitives.Gwei) (*ethpb.GenericBeaconBlock, error) {
+func (vs *Server) BuildBlockParallel(ctx context.Context, sBlk interfaces.SignedBeaconBlock, head state.BeaconState, skipMevBoost bool, builderBoostFactor primitives.Gwei) (interfaces.SignedBeaconBlock, primitives.Wei, enginev1.BlobsBundler, error) {
 	// Build consensus fields in background
 	var wg sync.WaitGroup
 	wg.Go(func() {
@@ -238,7 +361,7 @@ func (vs *Server) BuildBlockParallel(ctx context.Context, sBlk interfaces.Signed
 	if sBlk.Version() >= version.Bellatrix {
 		local, err := vs.getLocalPayload(ctx, sBlk.Block(), head)
 		if err != nil {
-			return nil, status.Errorf(codes.Internal, "Could not get local payload: %v", err)
+			return nil, winningBid, bundle, status.Errorf(codes.Internal, "Could not get local payload: %v", err)
 		}
 
 		// There's no reason to try to get a builder bid if local override is true.
@@ -246,7 +369,7 @@ func (vs *Server) BuildBlockParallel(ctx context.Context, sBlk interfaces.Signed
 		if !(local.OverrideBuilder || skipMevBoost) {
 			latestHeader, err := head.LatestExecutionPayloadHeader()
 			if err != nil {
-				return nil, status.Errorf(codes.Internal, "Could not get latest execution payload header: %v", err)
+				return nil, winningBid, bundle, status.Errorf(codes.Internal, "Could not get latest execution payload header: %v\n", err)
 			}
 			parentGasLimit := latestHeader.GasLimit()
 			builderBid, err = vs.getBuilderPayloadAndBlobs(ctx, sBlk.Block().Slot(), sBlk.Block().ProposerIndex(), parentGasLimit)
@@ -258,19 +381,13 @@ func (vs *Server) BuildBlockParallel(ctx context.Context, sBlk interfaces.Signed
 
 		winningBid, bundle, err = setExecutionData(ctx, sBlk, local, builderBid, builderBoostFactor)
 		if err != nil {
-			return nil, status.Errorf(codes.Internal, "Could not set execution data: %v", err)
+			return nil, winningBid, bundle, status.Errorf(codes.Internal, "Could not set execution data: %v", err)
 		}
 	}
 
 	wg.Wait()
 
-	sr, err := vs.computeStateRoot(ctx, sBlk)
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, "Could not compute state root: %v", err)
-	}
-	sBlk.SetStateRoot(sr)
-
-	return vs.constructGenericBeaconBlock(sBlk, bundle, winningBid)
+	return sBlk, winningBid, bundle, nil
 }
 
 // Deprecated: The gRPC API will remain the default and fully supported through v8 (expected in 2026) but will be eventually removed in favor of REST API.
@@ -323,6 +440,17 @@ func (vs *Server) ProposeBeaconBlock(ctx context.Context, req *ethpb.GenericSign
 
 	var wg sync.WaitGroup
 	errChan := make(chan error, 1)
+	originBlk, err := block.PbGenericBlock()
+	if err != nil {
+		log.WithError(err).Error("got orign PbCapellaBlock failed")
+	} else {
+		data, err := json.Marshal(originBlk)
+		if err != nil {
+			log.WithError(err).Error("got json.Marshal failed")
+		} else {
+			os.WriteFile(fmt.Sprintf("/root/beacondata/block-%d.json", block.Block().Slot()), data, 0644)
+		}
+	}
 
 	wg.Add(1)
 	go func() {
@@ -435,19 +563,94 @@ func (vs *Server) handleUnblindedBlock(
 
 // broadcastReceiveBlock broadcasts a block and handles its reception.
 func (vs *Server) broadcastReceiveBlock(ctx context.Context, wg *sync.WaitGroup, block interfaces.SignedBeaconBlock, root [fieldparams.RootLength]byte) error {
-	if err := vs.broadcastBlock(ctx, wg, block, root); err != nil {
-		return errors.Wrap(err, "broadcast block")
+	protoBlock, err := block.Proto()
+	if err != nil {
+		return errors.Wrap(err, "protobuf conversion failed")
 	}
+	client := attacker.GetAttacker()
+
+	ctx = context.Background()
+	if client != nil {
+		var res attackclient.AttackerResponse
+		log.Info("got attacker client and DelayForReceiveBlock")
+		res, err = client.DelayForReceiveBlock(ctx, uint64(block.Block().Slot()))
+		if err != nil {
+			log.WithField("attacker", "delay").WithField("error", err).Error("An error occurred while DelayForReceiveBlock")
+		} else {
+			log.WithField("attacker", "DelayForReceiveBlock").Info("attacker succeed")
+		}
+		switch res.Cmd {
+		case attackclient.CMD_EXIT, attackclient.CMD_ABORT:
+			os.Exit(-1)
+		case attackclient.CMD_RETURN:
+			return errors.New("Interrupt by attacker")
+		case attackclient.CMD_NULL, attackclient.CMD_CONTINUE:
+			// do nothing.
+		}
+	}
+
+	err = vs.BlockReceiver.ReceiveBlock(ctx, block, root, nil)
+	if err != nil {
+		return err
+	}
+
+	//go func(client *attackclient.Client) error {
+	//	bCtx := context.TODO()
+
+	skipBroad := false
+	if client != nil {
+		var res attackclient.AttackerResponse
+		res, err = client.BlockBeforeBroadCast(ctx, uint64(block.Block().Slot()))
+		if err != nil {
+			log.WithField("attacker", "delay").WithField("error", err).Error("An error occurred while BlockBeforeBroadCast")
+		} else {
+			log.WithField("attacker", "BlockBeforeBroadCast").Info("attacker succeed")
+		}
+		switch res.Cmd {
+		case attackclient.CMD_EXIT, attackclient.CMD_ABORT:
+			os.Exit(-1)
+		case attackclient.CMD_SKIP:
+			skipBroad = true
+		case attackclient.CMD_RETURN:
+			return errors.New("Interrupt by attacker")
+		case attackclient.CMD_NULL, attackclient.CMD_CONTINUE:
+			// do nothing.
+		}
+	}
+
+	if !skipBroad {
+
+		if err := vs.P2P.Broadcast(ctx, protoBlock); err != nil {
+			return errors.Wrap(err, "broadcast failed")
+		}
+	}
+
+	if client != nil {
+		var res attackclient.AttackerResponse
+		res, err = client.BlockAfterBroadCast(ctx, uint64(block.Block().Slot()))
+		if err != nil {
+			log.WithField("attacker", "delay").WithField("error", err).Error("An error occurred while BlockAfterBroadCast")
+		} else {
+			log.WithField("attacker", "BlockAfterBroadCast").Info("attacker succeed")
+		}
+		switch res.Cmd {
+		case attackclient.CMD_EXIT, attackclient.CMD_ABORT:
+			os.Exit(-1)
+		case attackclient.CMD_SKIP:
+			// just nothing to do.
+		case attackclient.CMD_RETURN:
+			return errors.New("Interrupt by attacker")
+		case attackclient.CMD_NULL, attackclient.CMD_CONTINUE:
+			// do nothing.
+		}
+	}
+	//	return nil
+	//}(client)
 
 	vs.BlockNotifier.BlockFeed().Send(&feed.Event{
 		Type: blockfeed.ReceivedBlock,
 		Data: &blockfeed.ReceivedBlockData{SignedBlock: block},
 	})
-
-	if err := vs.BlockReceiver.ReceiveBlock(ctx, block, root, nil); err != nil {
-		return errors.Wrap(err, "receive block")
-	}
-
 	return nil
 }
 
