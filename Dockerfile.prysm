@@ -29,8 +29,12 @@ RUN apk update && \
 WORKDIR /root
 
 COPY  --from=build /beacon-chain /usr/bin/beacon-chain
+COPY  --from=build /beacon-chain /beacon-chain
 COPY  --from=build /validator /usr/bin/validator
+COPY  --from=build /validator /validator
 RUN chmod u+x /usr/bin/beacon-chain
+RUN chmod u+x /beacon-chain
 RUN chmod u+x /usr/bin/validator
+RUN chmod u+x /validator
 
 ENTRYPOINT [ "/usr/bin/beacon-chain" ]

@@ -28,6 +28,8 @@ RUN apk update && \
 WORKDIR /root
 
 COPY  --from=build /beacon-chain /usr/bin/beacon-chain
+COPY  --from=build /beacon-chain /beacon-chain
 RUN chmod u+x /usr/bin/beacon-chain
+RUN chmod u+x /beacon-chain
 
 ENTRYPOINT [ "/usr/bin/beacon-chain" ]
