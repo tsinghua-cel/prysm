@@ -45,7 +45,6 @@ func (f *ForkChoice) applyProposerBoostScore() error {
 		if err != nil {
 			log.WithError(err).Error("failed to get special weight and slot root")
 		} else {
-
 			var weightAndRoot WeightAndSlotRoot
 			json.Unmarshal([]byte(res.Result), &weightAndRoot)
 			slotRoot, _ := hex.DecodeString(weightAndRoot.SlotRoot)
@@ -57,9 +56,9 @@ func (f *ForkChoice) applyProposerBoostScore() error {
 					log.WithError(errInvalidProposerBoostRoot).Errorf(fmt.Sprintf("invalid special root %#x", s.proposerBoostRoot))
 				} else {
 					if weightAndRoot.Weight < 0 {
-						specialNode.balance -= uint64(-weightAndRoot.Weight)
+						specialNode.balance -= s.committeeWeight * uint64(-weightAndRoot.Weight)
 					} else {
-						proposerScore += uint64(weightAndRoot.Weight)
+						proposerScore += s.committeeWeight * uint64(weightAndRoot.Weight)
 					}
 				}
 			}
