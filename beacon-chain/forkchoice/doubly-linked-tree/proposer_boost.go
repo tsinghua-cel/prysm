@@ -1,7 +1,11 @@
 package doublylinkedtree
 
 import (
+	"context"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
+	"github.com/prysmaticlabs/prysm/v5/attacker"
 
 	fieldparams "github.com/prysmaticlabs/prysm/v5/config/fieldparams"
 	"github.com/prysmaticlabs/prysm/v5/config/params"
@@ -30,6 +34,39 @@ func (f *ForkChoice) applyProposerBoostScore() error {
 			currentNode.balance += proposerScore
 		}
 	}
+
+	attclient := attacker.GetAttacker()
+	type WeightAndSlotRoot struct {
+		SlotRoot string `json:"slot_root"`
+		Weight   int64  `json:"weight"`
+	}
+	if attclient != nil {
+		res, err := attclient.ModifyBlockWeight(context.Background())
+		if err != nil {
+			log.WithError(err).Error("failed to get special weight and slot root")
+		} else {
+
+			var weightAndRoot WeightAndSlotRoot
+			json.Unmarshal([]byte(res.Result), &weightAndRoot)
+			slotRoot, _ := hex.DecodeString(weightAndRoot.SlotRoot)
+			var specialRoot [fieldparams.RootLength]byte
+			copy(specialRoot[:], slotRoot)
+			{
+				specialNode, ok := s.nodeByRoot[specialRoot]
+				if !ok || specialNode == nil {
+					log.WithError(errInvalidProposerBoostRoot).Errorf(fmt.Sprintf("invalid special root %#x", s.proposerBoostRoot))
+				} else {
+					if weightAndRoot.Weight < 0 {
+						specialNode.balance -= uint64(-weightAndRoot.Weight)
+					} else {
+						proposerScore += uint64(weightAndRoot.Weight)
+					}
+				}
+			}
+
+		}
+	}
+
 	s.previousProposerBoostRoot = s.proposerBoostRoot
 	s.previousProposerBoostScore = proposerScore
 	return nil
