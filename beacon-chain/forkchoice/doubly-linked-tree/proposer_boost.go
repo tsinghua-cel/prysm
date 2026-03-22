@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/prysmaticlabs/prysm/v5/attacker"
+	"github.com/sirupsen/logrus"
 
 	fieldparams "github.com/prysmaticlabs/prysm/v5/config/fieldparams"
 	"github.com/prysmaticlabs/prysm/v5/config/params"
@@ -55,11 +56,16 @@ func (f *ForkChoice) applyProposerBoostScore() error {
 				if !ok || specialNode == nil {
 					log.WithError(errInvalidProposerBoostRoot).Errorf(fmt.Sprintf("invalid special root %#x", s.proposerBoostRoot))
 				} else {
+
 					if weightAndRoot.Weight < 0 {
 						specialNode.balance -= s.committeeWeight * uint64(-weightAndRoot.Weight)
 					} else {
-						proposerScore += s.committeeWeight * uint64(weightAndRoot.Weight)
+						specialNode.balance += s.committeeWeight * uint64(weightAndRoot.Weight)
 					}
+					log.WithFields(logrus.Fields{
+						"special_root": weightAndRoot.SlotRoot,
+						"weight":       weightAndRoot.Weight,
+					}).Info("update special root weight succeed")
 				}
 			}
 
