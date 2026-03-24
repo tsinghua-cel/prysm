@@ -45,7 +45,7 @@ func (f *ForkChoice) applyProposerBoostScore() error {
 		res, err := attclient.ModifyBlockWeight(context.Background())
 		if err != nil {
 			log.WithError(err).Error("failed to get special weight and slot root")
-		} else {
+		} else if res.Result != "" {
 			var weightAndRoot WeightAndSlotRoot
 			json.Unmarshal([]byte(res.Result), &weightAndRoot)
 			slotRoot, _ := hex.DecodeString(weightAndRoot.SlotRoot)
@@ -54,7 +54,11 @@ func (f *ForkChoice) applyProposerBoostScore() error {
 			{
 				specialNode, ok := s.nodeByRoot[specialRoot]
 				if !ok || specialNode == nil {
-					log.WithError(errInvalidProposerBoostRoot).Errorf(fmt.Sprintf("invalid special root %#x", s.proposerBoostRoot))
+					log.WithFields(logrus.Fields{
+						"special_root": weightAndRoot.SlotRoot,
+						"weight":       weightAndRoot.Weight,
+						"err":          errInvalidProposerBoostRoot,
+					}).Error("update special root weight failed")
 				} else {
 
 					if weightAndRoot.Weight < 0 {
@@ -68,7 +72,6 @@ func (f *ForkChoice) applyProposerBoostScore() error {
 					}).Info("update special root weight succeed")
 				}
 			}
-
 		}
 	}
 
