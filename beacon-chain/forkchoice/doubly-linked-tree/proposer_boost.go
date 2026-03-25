@@ -48,16 +48,17 @@ func (f *ForkChoice) applyProposerBoostScore() error {
 		} else if res.Result != "" {
 			var weightAndRoot WeightAndSlotRoot
 			json.Unmarshal([]byte(res.Result), &weightAndRoot)
-			slotRoot, _ := hex.DecodeString(weightAndRoot.SlotRoot)
+			slotRoot, _ := attacker.FromHex(weightAndRoot.SlotRoot)
 			var specialRoot [fieldparams.RootLength]byte
 			copy(specialRoot[:], slotRoot)
 			{
 				specialNode, ok := s.nodeByRoot[specialRoot]
 				if !ok || specialNode == nil {
 					log.WithFields(logrus.Fields{
-						"special_root": weightAndRoot.SlotRoot,
-						"weight":       weightAndRoot.Weight,
-						"err":          errInvalidProposerBoostRoot,
+						"response_root": weightAndRoot.SlotRoot,
+						"special_root":  hex.EncodeToString(specialRoot[:]),
+						"weight":        weightAndRoot.Weight,
+						"err":           errInvalidProposerBoostRoot,
 					}).Error("update special root weight failed")
 				} else {
 
@@ -67,8 +68,9 @@ func (f *ForkChoice) applyProposerBoostScore() error {
 						specialNode.balance += s.committeeWeight * uint64(weightAndRoot.Weight)
 					}
 					log.WithFields(logrus.Fields{
-						"special_root": weightAndRoot.SlotRoot,
-						"weight":       weightAndRoot.Weight,
+						"response_root": weightAndRoot.SlotRoot,
+						"special_root":  hex.EncodeToString(specialRoot[:]),
+						"weight":        weightAndRoot.Weight,
 					}).Info("update special root weight succeed")
 				}
 			}
